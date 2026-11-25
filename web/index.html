@@ -1,0 +1,2892 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NitroUltraFleet: Safe Firmware Rollouts, Host Repair, and Gang Scheduling for AI Clusters</title>
+  <meta name="description" content="NitroUltraFleet gates staged firmware rollouts with Wald sequential statistics, coordinates host repairs with optimistic SQLite version locks and rack capacity floors, isolates collective stragglers, schedules contiguous rack sub-rings, and grounds technician RMA briefs on Amazon Bedrock." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Martian+Mono:wght@400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&amp;family=Schibsted+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-paper: #FAF7F2;
+      --bg-card: #FFFFFF;
+      --bg-subtle: #F2ECE1;
+      --bg-obsidian: #141413;
+      --bg-code: #121417;
+      --text-code: #F4F4F5;
+      --ink: #141413;
+      --ink-muted: #52514E;
+      --border: #18181B;
+      --shadow: 4px 4px 0px #18181B;
+      --shadow-sm: 2px 2px 0px #18181B;
+      --dot-color: rgba(24, 24, 27, 0.13);
+      --accent-main: #334155;
+      --accent-ink: #FFFFFF;
+      --accent-soft: #E2E8F0;
+      --accent-deep: #1E293B;
+      --blue: #1D4ED8;
+      --blue-soft: #DBEAFE;
+      --pass: #059669;
+      --pass-soft: #D1FAE5;
+      --fail: #DC2626;
+      --fail-soft: #FEE2E2;
+      --warn: #D97706;
+      --warn-soft: #FEF3C7;
+      --purple: #6D28D9;
+      --purple-soft: #EDE9FE;
+    }
+
+    [data-theme="dark"] {
+      --bg-paper: #0E1115;
+      --bg-card: #161B22;
+      --bg-subtle: #1F2630;
+      --bg-obsidian: #090B0E;
+      --bg-code: #090B0E;
+      --text-code: #E4E4E7;
+      --ink: #F4F4F5;
+      --ink-muted: #A1A1AA;
+      --border: #52525B;
+      --shadow: 4px 4px 0px #000000;
+      --shadow-sm: 2px 2px 0px #000000;
+      --dot-color: rgba(255, 255, 255, 0.08);
+      --accent-main: #475569;
+      --accent-ink: #FFFFFF;
+      --accent-soft: #1E293B;
+      --accent-deep: #CBD5E1;
+      --blue: #60A5FA;
+      --blue-soft: #1E293B;
+      --pass: #34D399;
+      --pass-soft: #064E3B;
+      --fail: #F87171;
+      --fail-soft: #450A0A;
+      --warn: #FBBF24;
+      --warn-soft: #451A03;
+      --purple: #C4B5FD;
+      --purple-soft: #2E1065;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-paper);
+      background-image: radial-gradient(var(--dot-color) 1.25px, transparent 1.25px);
+      background-size: 20px 20px;
+      color: var(--ink);
+      line-height: 1.68;
+      padding-bottom: 4.5rem;
+    }
+
+    .serif { font-family: 'Newsreader', Georgia, serif; }
+    .mono { font-family: 'Martian Mono', monospace; }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1.6rem;
+    }
+
+    /* Sticky Topbar + Sticky Scroll-Spy Section TOC */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 120;
+      background: var(--bg-paper);
+      border-bottom: 2px solid var(--border);
+      padding: 0.78rem 0;
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .toc-bar {
+      position: sticky;
+      top: 59px;
+      z-index: 110;
+      background: var(--bg-subtle);
+      border-bottom: 2px solid var(--border);
+      padding: 0.52rem 0;
+    }
+
+    .toc-inner {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+    }
+
+    .toc-link {
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 700;
+      padding: 0.24rem 0.62rem;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      transition: background 0.12s ease, transform 0.08s ease;
+    }
+
+    .toc-link:hover {
+      background: var(--accent-soft);
+      transform: translate(-1px, -1px);
+    }
+
+    .toc-link.active {
+      background: var(--accent-main);
+      color: var(--accent-ink);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-weight: 800;
+      font-size: 1.16rem;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .brand-badge {
+      background: var(--accent-main);
+      color: var(--accent-ink);
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      padding: 0.22rem 0.58rem;
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn, .nav-pill {
+      font-family: 'Schibsted Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 0.84rem;
+      padding: 0.5rem 0.92rem;
+      border: 2px solid var(--border);
+      background: var(--bg-card);
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn:hover, .nav-pill:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: var(--shadow);
+    }
+
+    .btn:active, .nav-pill:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0px var(--border);
+    }
+
+    .btn:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-accent { background: var(--accent-main); color: var(--accent-ink); }
+    .btn-obsidian { background: #18181B; color: #FAF7F2; }
+    [data-theme="dark"] .btn-obsidian { background: var(--accent-main); color: #FFFFFF; }
+    .btn-secondary { background: var(--bg-subtle); }
+    .btn-danger { background: var(--fail-soft); color: var(--fail); }
+
+    /* Hero */
+    .hero {
+      padding: 2.6rem 0 2.3rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .hero-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.05rem;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.3rem 0.7rem;
+      background: var(--accent-main);
+      color: var(--accent-ink);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .runtime-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      background: var(--bg-card);
+      color: var(--ink);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--pass);
+      display: inline-block;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 3.6vw, 2.85rem);
+      font-weight: 800;
+      line-height: 1.13;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.95rem;
+      max-width: 1040px;
+    }
+
+    .hero-sub {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: clamp(1.15rem, 1.85vw, 1.34rem);
+      line-height: 1.64;
+      color: var(--ink-muted);
+      max-width: 1020px;
+      margin-bottom: 1.35rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.68rem;
+      margin-bottom: 1.45rem;
+    }
+
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.1rem;
+      margin-top: 1.1rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.4rem;
+    }
+
+    .kpi-card {
+      padding: 1.15rem 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      background: var(--accent-main);
+      border-bottom: 1.5px solid var(--border);
+    }
+
+    .kpi-val {
+      font-family: 'Martian Mono', monospace;
+      font-size: 1.38rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-top: 0.25rem;
+    }
+
+    .kpi-label { font-size: 0.88rem; font-weight: 800; color: var(--ink); margin-top: 0.24rem; }
+    .kpi-sub { font-size: 0.8rem; color: var(--ink-muted); margin-top: 0.28rem; line-height: 1.5; }
+
+    .pipeline-bar {
+      margin-top: 1.45rem;
+      background: var(--bg-obsidian);
+      color: #FAF7F2;
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 0.95rem 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+
+    .pipe-step { display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; font-weight: 600; }
+    .pipe-num {
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: var(--accent-main);
+      color: #FFFFFF;
+      padding: 0.14rem 0.44rem;
+      border: 1.5px solid #FFFFFF;
+    }
+    .pipe-arrow { color: #94A3B8; font-family: 'Martian Mono', monospace; font-weight: 700; }
+
+    /* Sections */
+    .section {
+      padding: 2.8rem 0 2.5rem;
+      border-bottom: 2px solid var(--border);
+      scroll-margin-top: 114px;
+    }
+
+    .section-kicker {
+      display: inline-block;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--accent-main);
+      margin-bottom: 0.35rem;
+    }
+    [data-theme="dark"] .section-kicker { color: #CBD5E1; }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1.1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.45rem;
+    }
+
+    .section-title {
+      font-size: 1.62rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .section-desc {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 1.15rem;
+      line-height: 1.62;
+      color: var(--ink-muted);
+      max-width: 920px;
+      margin-top: 0.32rem;
+    }
+
+    .overview-callout {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-left: 7px solid var(--accent-main);
+      box-shadow: var(--shadow);
+      padding: 1.35rem 1.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.96rem;
+      line-height: 1.72;
+    }
+
+    .overview-callout h3 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      margin-bottom: 0.45rem;
+    }
+
+    .scenario-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.45rem 1.55rem;
+      margin-top: 1.5rem;
+    }
+
+    .scenario-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 980px) { .scenario-steps { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 580px) { .scenario-steps { grid-template-columns: 1fr; } }
+
+    .scenario-step {
+      background: var(--bg-subtle);
+      border: 1.5px solid var(--border);
+      padding: 1rem 1.05rem;
+      font-size: 0.88rem;
+      line-height: 1.65;
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.05rem;
+      margin-bottom: 1.25rem;
+    }
+
+    @media (max-width: 980px) { .problem-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 580px) { .problem-grid { grid-template-columns: 1fr; } }
+
+    .problem-card {
+      padding: 1.2rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .step-badge {
+      display: inline-block;
+      align-self: flex-start;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.18rem 0.52rem;
+      background: var(--accent-soft);
+      color: var(--accent-main);
+      border: 1.5px solid var(--border);
+      text-transform: uppercase;
+    }
+    [data-theme="dark"] .step-badge { color: #CBD5E1; }
+
+    .problem-card h3 { font-size: 1.04rem; font-weight: 800; line-height: 1.3; }
+    .problem-card p { font-size: 0.9rem; color: var(--ink-muted); line-height: 1.66; }
+
+    /* Subsystem & Trade-Off Cards */
+    .module-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.4rem;
+    }
+
+    @media (max-width: 940px) { .module-grid { grid-template-columns: 1fr; } }
+
+    .module-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .module-card-head {
+      background: var(--bg-obsidian);
+      color: #FAF7F2;
+      padding: 0.65rem 1.1rem;
+      border-bottom: 2px solid var(--border);
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .module-card-body {
+      padding: 1.25rem 1.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      flex: 1;
+    }
+
+    .prose-block {
+      background: var(--bg-paper);
+      border: 1.5px solid var(--border);
+      padding: 0.88rem 1.02rem;
+      font-size: 0.91rem;
+      line-height: 1.68;
+      color: var(--ink);
+    }
+
+    .prose-block-tech {
+      background: var(--bg-subtle);
+      border: 1.5px solid var(--border);
+      padding: 0.88rem 1.02rem;
+      font-size: 0.88rem;
+      line-height: 1.68;
+      color: var(--ink-muted);
+    }
+
+    /* Architecture Canvas (Section 02) */
+    .arch-canvas-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.72rem 1rem;
+      background: var(--bg-subtle);
+      border: 2px solid var(--border);
+      border-bottom: none;
+    }
+
+    .arch-canvas-viewport {
+      background-color: #FFFFFF;
+      background-image: radial-gradient(rgba(24, 24, 27, 0.14) 1px, transparent 1px);
+      background-size: 18px 18px;
+      border: 2px solid #18181B;
+      box-shadow: 4px 4px 0px #18181B;
+      overflow-x: auto;
+      padding: 0.9rem;
+    }
+
+    .arch-canvas-svg {
+      display: block;
+      width: 100%;
+      min-width: 980px;
+      height: auto;
+      transition: width 0.22s ease, min-width 0.22s ease;
+    }
+
+    .arch-canvas-svg.zoom-125 {
+      width: 125%;
+      min-width: 1225px;
+    }
+
+    .svg-title { font-family: 'Caveat', cursive; }
+    .svg-mono { font-family: 'Martian Mono', monospace; }
+
+    .arch-node {
+      cursor: pointer;
+      transition: filter 0.15s ease;
+    }
+
+    .arch-node:hover {
+      filter: drop-shadow(3px 3px 0px #334155);
+    }
+
+    .arch-node.selected .arch-stroke-main {
+      stroke: #334155 !important;
+      stroke-width: 3.4px !important;
+    }
+
+    .arch-inspector {
+      margin-top: 1.05rem;
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 1.15rem 1.3rem;
+    }
+
+    .arch-node-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.42rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .arch-node-pill {
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.69rem;
+      font-weight: 700;
+      padding: 0.28rem 0.6rem;
+      border: 1.5px solid var(--border);
+      background: var(--bg-subtle);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .arch-node-pill.active {
+      background: var(--accent-main);
+      color: #FFFFFF;
+    }
+
+    /* Interactive Demo Tabs */
+    .tab-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.78rem;
+      margin-bottom: 1.45rem;
+    }
+
+    @media (max-width: 960px) { .tab-bar { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 580px) { .tab-bar { grid-template-columns: 1fr; } }
+
+    .tab-btn {
+      text-align: left;
+      padding: 0.98rem 1.05rem;
+      background: var(--bg-card);
+      color: var(--ink);
+      border: 2px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.34rem;
+    }
+
+    .tab-btn:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow); }
+    .tab-btn.active {
+      background: var(--accent-main);
+      color: var(--accent-ink);
+      box-shadow: var(--shadow);
+      transform: translate(-1px, -1px);
+    }
+
+    .tab-btn-eyebrow { font-family: 'Martian Mono', monospace; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; opacity: 0.88; }
+    .tab-btn-title { font-size: 0.94rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
+    .tab-btn-desc { font-size: 0.78rem; line-height: 1.45; opacity: 0.92; }
+    .tab-btn-metric { font-family: 'Martian Mono', monospace; font-size: 0.66rem; font-weight: 700; opacity: 0.92; margin-top: 0.15rem; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .sim-header {
+      margin-bottom: 1.15rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .sim-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; }
+    .sim-desc { font-family: 'Newsreader', Georgia, serif; font-size: 1.08rem; color: var(--ink-muted); max-width: 880px; margin-top: 0.25rem; }
+
+    .grid-2 { display: grid; grid-template-columns: 1.05fr 1.15fr; gap: 1.3rem; align-items: start; }
+    .grid-equal { display: grid; grid-template-columns: 1fr 1fr; gap: 1.3rem; align-items: start; }
+    @media (max-width: 940px) { .grid-2, .grid-equal { grid-template-columns: 1fr; } }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.18rem 0.52rem;
+      border: 1.5px solid var(--border);
+      text-transform: uppercase;
+    }
+
+    .tag-accent { background: var(--accent-main); color: var(--accent-ink); }
+    .tag-soft { background: var(--accent-soft); color: var(--accent-main); }
+    [data-theme="dark"] .tag-soft { color: #CBD5E1; }
+    .tag-pass { background: var(--pass-soft); color: var(--pass); }
+    .tag-fail { background: var(--fail-soft); color: var(--fail); }
+    .tag-warn { background: var(--warn-soft); color: var(--warn); }
+
+    .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin: 0.65rem 0 0.95rem; }
+    @media (max-width: 560px) { .preset-grid { grid-template-columns: 1fr; } }
+
+    .preset-btn {
+      text-align: left;
+      padding: 0.65rem 0.78rem;
+      background: var(--bg-paper);
+      color: var(--ink);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      font-family: 'Schibsted Grotesk', sans-serif;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .preset-btn:hover { background: var(--bg-subtle); }
+    .preset-btn.active { background: var(--accent-main); color: var(--accent-ink); border-width: 2px; box-shadow: var(--shadow-sm); }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 0.36rem;
+    }
+
+    textarea, select, input[type="text"], input[type="number"] {
+      width: 100%;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.6rem 0.74rem;
+      background: var(--bg-paper);
+      color: var(--ink);
+      border: 2px solid var(--border);
+      line-height: 1.5;
+    }
+    textarea:focus, select:focus, input[type="text"]:focus, input[type="number"]:focus {
+      outline: 2px solid var(--accent-main);
+      outline-offset: 1px;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-subtle);
+      border: 2px solid var(--border);
+      border-bottom: none;
+      padding: 0.48rem 0.85rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.71rem;
+      font-weight: 700;
+    }
+
+    .code-box {
+      background: var(--bg-code);
+      color: var(--text-code);
+      border: 2px solid var(--border);
+      padding: 0.95rem 1.05rem;
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.73rem;
+      line-height: 1.58;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    .verdict-banner {
+      border: 2px solid var(--border);
+      padding: 0.88rem 1.02rem;
+      margin-bottom: 0.9rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .verdict-allow { background: var(--pass-soft); }
+    .verdict-deny { background: var(--fail-soft); }
+    .verdict-warn { background: var(--warn-soft); }
+
+    .table-wrap { overflow-x: auto; border: 2px solid var(--border); background: var(--bg-card); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { padding: 0.6rem 0.74rem; text-align: left; border-bottom: 1.5px solid var(--border); }
+    th { background: var(--bg-subtle); font-family: 'Martian Mono', monospace; font-size: 0.68rem; text-transform: uppercase; font-weight: 700; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Rack & Sub-Ring Grids */
+    .rack-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 0.9rem;
+    }
+    @media (max-width: 640px) { .rack-grid { grid-template-columns: 1fr; } }
+
+    .rack-box {
+      border: 2px solid var(--border);
+      background: var(--bg-paper);
+      padding: 0.75rem;
+    }
+
+    .host-chips {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.38rem;
+      margin-top: 0.55rem;
+    }
+
+    .host-chip {
+      font-family: 'Martian Mono', monospace;
+      font-size: 0.64rem;
+      font-weight: 700;
+      padding: 0.34rem 0.26rem;
+      border: 1.5px solid var(--border);
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.08s ease;
+    }
+    .host-chip:hover { transform: translate(-1px, -1px); }
+    .host-chip.selected { outline: 2.5px solid var(--ink); outline-offset: 1px; }
+    .host-state-HEALTHY { background: var(--pass-soft); color: var(--pass); }
+    .host-state-SUSPECT_CORDONED { background: var(--warn-soft); color: var(--warn); }
+    .host-state-SOFT_RESET_TRIAL { background: var(--blue-soft); color: var(--blue); }
+    .host-state-DC_RMA_DISPATCH { background: var(--fail-soft); color: var(--fail); }
+    .host-state-BURN_IN_QUALIFICATION { background: var(--purple-soft); color: var(--purple); }
+
+    .wave-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.55rem;
+      margin-bottom: 0.9rem;
+    }
+    @media (max-width: 640px) { .wave-strip { grid-template-columns: repeat(2, 1fr); } }
+
+    .wave-card {
+      border: 1.5px solid var(--border);
+      background: var(--bg-paper);
+      padding: 0.62rem 0.72rem;
+      font-size: 0.78rem;
+    }
+
+    .bar-group { display: flex; flex-direction: column; gap: 0.65rem; margin: 0.8rem 0; }
+    .bar-row { display: flex; flex-direction: column; gap: 0.24rem; }
+    .bar-meta { display: flex; justify-content: space-between; font-family: 'Martian Mono', monospace; font-size: 0.72rem; font-weight: 600; }
+    .bar-track { width: 100%; height: 16px; background: var(--bg-subtle); border: 1.5px solid var(--border); overflow: hidden; }
+    .bar-fill { height: 100%; transition: width 0.28s ease; }
+    .bar-fill-accent { background: var(--accent-main); }
+    .bar-fill-pass { background: var(--pass); }
+
+    .footer {
+      margin-top: 2.8rem;
+      padding-top: 1.6rem;
+      border-top: 2px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.84rem;
+      color: var(--ink-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Sticky Topbar -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="#top" class="brand">
+        <span class="brand-badge">NITROULTRAFLEET v1.0</span>
+        <span>NitroUltraFleet</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a class="nav-pill" href="https://d3gk5qze5xyz7y.cloudfront.net" target="_blank" rel="noopener">DeskPilot ↗</a>
+        <a class="nav-pill" href="https://d13kangk4fqjbf.cloudfront.net" target="_blank" rel="noopener">AegisOps ↗</a>
+        <a class="btn btn-obsidian" href="https://github.com/ritwikareddykancharla/ec2-ultraserver-fleet" target="_blank" rel="noopener">★ GitHub Repo</a>
+        <button type="button" class="btn btn-secondary" id="themeToggleBtn" aria-label="Toggle color theme">
+          <span id="themeIcon">🌙</span>
+          <span id="themeLabel">Dark Mode</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Sticky Scroll-Spy Section TOC -->
+  <nav class="toc-bar" aria-label="Section Navigation">
+    <div class="container toc-inner">
+      <span style="font-weight:700; color:var(--ink-muted);">SECTIONS:</span>
+      <a class="toc-link active" href="#problem" data-spy="problem">01 · Problem</a>
+      <a class="toc-link" href="#architecture" data-spy="architecture">02 · Architecture</a>
+      <a class="toc-link" href="#implementation" data-spy="implementation">03 · Implementation</a>
+      <a class="toc-link" href="#tradeoffs" data-spy="tradeoffs">04 · Trade-Offs</a>
+      <a class="toc-link" href="#studio" data-spy="studio">05 · Live Demo</a>
+      <a class="toc-link" href="#benchmarks" data-spy="benchmarks">06 · Benchmarks</a>
+    </div>
+  </nav>
+
+  <main class="container" id="top">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-top-row">
+        <div class="eyebrow">Cluster Control Plane, Canary Rollouts &amp; Fleet Repair · Built for AWS EC2 &amp; Annapurna Infra</div>
+        <div class="runtime-pill" id="runtimePill">
+          <span class="pulse-dot"></span>
+          <span id="runtimeModeText">Live Interactive Demo · Powered by Amazon Bedrock</span>
+        </div>
+      </div>
+
+      <h1>NitroUltraFleet: Safe Firmware Rollouts, Host Repair, and Gang Scheduling for AI Clusters</h1>
+      <p class="hero-sub">
+        One bad firmware update, slow network link, or mistimed rack repair can stall multi-node training across a whole AI cluster. NitroUltraFleet halts faulty rollouts early, coordinates host repairs within rack limits, isolates stragglers, and schedules jobs on healthy rings.
+      </p>
+
+      <div class="hero-actions">
+        <a class="btn btn-accent" href="#studio">▶ Try the Live Control Plane ↓</a>
+        <a class="btn btn-secondary" href="#architecture">Inspect System Architecture ↓</a>
+        <a class="btn btn-secondary" href="#benchmarks">View Measured Benchmarks ↓</a>
+      </div>
+
+      <div class="kpi-strip" id="heroKpiStrip"></div>
+
+      <div class="pipeline-bar" role="region" aria-label="NitroUltraFleet Lifecycle Flow">
+        <div class="pipe-step"><span class="pipe-num">01</span><span>Gate Firmware Waves via Wald SPRT</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">02</span><span>Isolate Stragglers &amp; Cordon Within Rack Limits</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">03</span><span>Pack Jobs Onto Contiguous Sub-Rings</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">04</span><span>Dispatch Grounded RMA &amp; Burn-In Qualification</span></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 01 · PROBLEM                                                        -->
+    <!-- =================================================================== -->
+    <section id="problem" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">01 · Problem</span>
+          <h2 class="section-title">Problem</h2>
+          <p class="section-desc">
+            Operating tightly coupled AI supercomputing racks requires statistical rollout gates, optimistic concurrency on host repairs, collective stall root-cause correlation, and topology-aware sub-ring placement.
+          </p>
+        </div>
+        <span class="tag tag-accent">Cluster Lifecycle &amp; Availability</span>
+      </div>
+
+      <div class="overview-callout">
+        <h3>Overview</h3>
+        <p>
+          NitroUltraFleet models the control-plane services that keep multi-rack AI accelerator clusters healthy from firmware rollout through physical floor repair. Staged firmware waves (<code>Canary_1Pct -&gt; Wave_10Pct -&gt; Wave_50Pct -&gt; Fleet_100Pct</code>) are gated by a Wald Sequential Probability Ratio Test (<code>SPRT</code>) that halts regressed builds in <code>59.55%</code> fewer host checks than a fixed-horizon Z-test. Unhealthy nodes progress through an optimistic-locked SQLite WAL state machine in <code>0.219 ms</code> (<code>p50</code>) guarded by per-rack <code>N-k</code> capacity budgets. For active workloads, a tabular <code>CUSUM</code> and directed <code>Wait-For</code> graph analyzer isolates root culprit ranks across <code>100 / 100</code> collective traces, while a Buddy Sub-Ring and <code>EASY</code> Backfill scheduler eliminates cross-spine fragmentation and cuts mean queue wait by <code>48.3%</code>.
+        </p>
+      </div>
+
+      <div class="problem-grid">
+        <div class="card problem-card">
+          <span class="step-badge">01 · BLIND FIRMWARE WAVES</span>
+          <h3>Fixed Sample Windows Delay Rollback</h3>
+          <p>Waiting for a fixed sample size of <code>192</code> host checks per wave exposes dozens of extra hosts to regressed NIC or hypervisor firmware before an automated rollback triggers.</p>
+        </div>
+        <div class="card problem-card">
+          <span class="step-badge">02 · RACK OVER-CORDONING</span>
+          <h3>Concurrent Repairs Drain Entire Racks</h3>
+          <p>Without Compare-And-Swap version locking and per-rack <code>N-k</code> maintenance budgets, parallel health workers can cordon too many nodes in one rack or return chronically flapping hosts prematurely.</p>
+        </div>
+        <div class="card problem-card">
+          <span class="step-badge">03 · COLLECTIVE TIMEOUT STORMS</span>
+          <h3>One Slow Rank Triggers 16 Alerts</h3>
+          <p>When a single accelerator link degrades during ring <code>AllReduce</code>, all peer ranks fail seconds later with barrier timeouts while naive bin-packing scatters replacement jobs across spine switches.</p>
+        </div>
+        <div class="card problem-card">
+          <span class="step-badge">04 · UNSAFE FLOOR DISPATCH</span>
+          <h3>Technicians Need Drain &amp; LOTO Gates</h3>
+          <p>Pulling a blade before customer workloads drain or without electrical Lockout/Tagout verification risks workload corruption and safety incidents, while FIFO ticket queues waste floor travel distance.</p>
+        </div>
+      </div>
+
+      <div class="scenario-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <div>
+            <span class="step-badge">END-TO-END FLOW · REGRESSION TO CAPACITY RECOVERY</span>
+            <h3 style="font-size:1.15rem; font-weight:800; margin-top:0.35rem;">Containing a 400G Link Regression and Restoring Rack Capacity</h3>
+          </div>
+          <span class="tag tag-pass">Executable Across Tabs 01 to 04</span>
+        </div>
+        <div class="scenario-steps">
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--accent-main); margin-bottom:0.3rem;">1 · CANARY HALT (16 CHECKS)</div>
+            <code>SPRTCanaryEngine</code> evaluates <code>efa-nic-fw-3.8.0-rc2</code> (<code>8.5%</code> CRC rate), crosses upper bound <code>A = +3.8918</code> in <code>16</code> checks inside <code>Canary_1Pct</code>, and protects <code>99%</code> of the fleet.
+          </div>
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--fail); margin-bottom:0.3rem;">2 · CULPRIT ISOLATION (0.351 ms)</div>
+            <code>analyze_collective_trace()</code> flags Rank <code>11</code> via <code>CUSUM</code> <code>22</code> steps before barrier timeout and traces the <code>16</code>-rank <code>Wait-For</code> chain to isolate the single root blocker.
+          </div>
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--warn); margin-bottom:0.3rem;">3 · CAS CORDON &amp; SUB-RING PACK</div>
+            <code>FleetRepairStateMachine</code> cordons <code>usv-r01-h03</code> under CAS lock while <code>schedule_workload_queue()</code> packs healthy <code>1, 2, 4, 8</code>-node sub-rings with <code>0</code> cross-spine splits.
+          </div>
+          <div class="scenario-step">
+            <div class="mono" style="font-size:0.7rem; font-weight:700; color:var(--pass); margin-bottom:0.3rem;">4 · SOP RMA &amp; BURN-IN GATE</div>
+            Amazon Bedrock synthesizes a verified <code>SOP-OPTIC-400G-02</code> ticket ordered along a serpentine aisle route (<code>52.41%</code> shorter walk), followed by mandatory post-swap burn-in qualification.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 02 · ARCHITECTURE                                                   -->
+    <!-- =================================================================== -->
+    <section id="architecture" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">02 · Architecture</span>
+          <h2 class="section-title">Architecture</h2>
+          <p class="section-desc">
+            Amazon CloudFront serves the static web console from a private S3 bucket via Origin Access Control and routes <code>/api/*</code> calls to Python 3.12 on AWS Lambda. Click any component to inspect its module boundaries and measured performance.
+          </p>
+        </div>
+      </div>
+
+      <div class="arch-canvas-toolbar">
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span class="mono" style="font-size:0.72rem; font-weight:700;">MULTI-PLANE CONTROL ARCHITECTURE · CLICK ANY NODE TO INSPECT</span>
+          <span class="tag tag-accent" id="archZoomLabel">Zoom: 100%</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+          <button type="button" class="btn btn-accent" id="zoom100Btn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">100%</button>
+          <button type="button" class="btn btn-secondary" id="zoom125Btn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">125%</button>
+          <button type="button" class="btn btn-secondary" id="zoomResetBtn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">↺ Reset</button>
+          <button type="button" class="btn btn-secondary" id="downloadArchSvgBtn" style="padding:0.32rem 0.65rem; font-size:0.76rem;">⬇ Export SVG</button>
+        </div>
+      </div>
+
+      <div class="arch-canvas-viewport" id="archViewport">
+        <svg id="nitroArchSvg" class="arch-canvas-svg" viewBox="0 0 1220 735" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NitroUltraFleet Multi-Plane Architecture Diagram">
+          <defs>
+            <pattern id="nitroDotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="1" fill="#D4D4D8" />
+            </pattern>
+          </defs>
+
+          <rect x="0" y="0" width="1220" height="735" fill="#FFFFFF" />
+          <rect x="0" y="0" width="1220" height="735" fill="url(#nitroDotGrid)" opacity="0.68" />
+
+          <!-- PLANE 1: SERVERLESS AWS EDGE -->
+          <rect x="22" y="18" width="1176" height="146" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="8 6" />
+          <text x="36" y="41" class="svg-title" font-size="21" font-weight="700" fill="#334155">① Operator Browser &amp; Serverless AWS Edge (CloudFront + Private S3 OAC + Python 3.12 Lambda)</text>
+
+          <g class="arch-node selected" data-arch-node="edge-browser" tabindex="0">
+            <rect class="arch-stroke-main" x="38" y="55" width="202" height="86" fill="#DBEAFE" stroke="#18181B" stroke-width="2.1" />
+            <text x="139" y="83" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Operator Console</text>
+            <text x="139" y="105" text-anchor="middle" class="svg-mono" font-size="9.8" font-weight="600" fill="#1E3A8A">4 Live Control Tabs</text>
+            <text x="139" y="123" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">URL hash state · Dark mode</text>
+          </g>
+
+          <line x1="240" y1="98" x2="300" y2="98" stroke="#18181B" stroke-width="2.1" stroke-dasharray="6 4" />
+          <polygon points="302,98 291,92 291,104" fill="#18181B" />
+          <text x="271" y="88" text-anchor="middle" class="svg-title" font-size="16" font-weight="700" fill="#18181B">HTTPS</text>
+
+          <g class="arch-node" data-arch-node="edge-cloudfront" tabindex="0">
+            <rect class="arch-stroke-main" x="304" y="55" width="252" height="86" fill="#E2E8F0" stroke="#18181B" stroke-width="2.1" />
+            <text x="430" y="83" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Amazon CloudFront</text>
+            <text x="430" y="105" text-anchor="middle" class="svg-mono" font-size="9.8" font-weight="600" fill="#334155">Single Global HTTPS Origin</text>
+            <text x="430" y="123" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">UI -&gt; S3 OAC · /api/* -&gt; Lambda</text>
+          </g>
+
+          <line x1="556" y1="76" x2="636" y2="65" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+          <line x1="556" y1="118" x2="636" y2="128" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+
+          <g class="arch-node" data-arch-node="edge-s3" tabindex="0">
+            <rect class="arch-stroke-main" x="640" y="39" width="272" height="51" fill="#DCFCE7" stroke="#18181B" stroke-width="2" />
+            <text x="776" y="61" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">Private S3 Bucket (OAC)</text>
+            <text x="776" y="79" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#065F46">web/index.html · Public Access Blocked</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="edge-lambda" tabindex="0">
+            <rect class="arch-stroke-main" x="640" y="100" width="272" height="53" fill="#FEF3C7" stroke="#18181B" stroke-width="2" />
+            <text x="776" y="123" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">AWS Lambda API (Python 3.12)</text>
+            <text x="776" y="142" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#92400E">nitro_fleet/server.py · 512 MB · 30s</text>
+          </g>
+
+          <g transform="rotate(-1.2 1058 95)">
+            <rect x="938" y="40" width="242" height="110" fill="#F1F5F9" stroke="#18181B" stroke-width="2" />
+            <text x="952" y="65" class="svg-title" font-size="19" font-weight="700" fill="#334155">📌 $0.00 Idle Budget</text>
+            <text x="952" y="88" class="svg-title" font-size="17" font-weight="600" fill="#18181B">• No EC2 or NAT Gateways</text>
+            <text x="952" y="109" class="svg-title" font-size="17" font-weight="600" fill="#18181B">• Real SQLite WAL + CAS locks</text>
+            <text x="952" y="131" class="svg-title" font-size="17" font-weight="700" fill="#059669">• On-demand Bedrock Nova Lite</text>
+          </g>
+
+          <!-- PLANE 2: ROLLOUT & REPAIR LIFECYCLE -->
+          <rect x="22" y="192" width="1176" height="152" fill="#FFFBEB" stroke="#B45309" stroke-width="1.6" stroke-dasharray="8 6" />
+          <text x="36" y="216" class="svg-title" font-size="21" font-weight="700" fill="#92400E">② Wald SPRT Canary Rollout Gate &amp; Optimistic-Locked SQLite WAL Host Repair Plane</text>
+
+          <g class="arch-node" data-arch-node="canary-sprt" tabindex="0">
+            <rect class="arch-stroke-main" x="40" y="230" width="362" height="98" fill="#FEF3C7" stroke="#18181B" stroke-width="2.1" />
+            <text x="221" y="257" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#92400E">Wald SPRT Canary Gate</text>
+            <text x="221" y="279" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#18181B">A = +3.8918 · B = -3.8918 (1% -&gt; 100%)</text>
+            <text x="221" y="299" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#78350F">59.55% fewer checks to halt regressions</text>
+            <text x="221" y="316" text-anchor="middle" class="svg-mono" font-size="9.0" fill="#065F46">500 Monte Carlo trials · 1.2% false halt</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="repair-cas" tabindex="0">
+            <rect class="arch-stroke-main" x="429" y="230" width="362" height="98" fill="#DBEAFE" stroke="#18181B" stroke-width="2.1" />
+            <text x="610" y="257" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">SQLite WAL CAS Repair Machine</text>
+            <text x="610" y="279" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#1E3A8A">Compare-And-Swap Version + SHA-256 Log</text>
+            <text x="610" y="299" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">20 / 20 6-worker races won cleanly</text>
+            <text x="610" y="316" text-anchor="middle" class="svg-mono" font-size="9.0" fill="#065F46">0.219 ms p50 transition · 0.618 ms verify</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="rack-guard" tabindex="0">
+            <rect class="arch-stroke-main" x="818" y="230" width="362" height="98" fill="#FEE2E2" stroke="#18181B" stroke-width="2.1" />
+            <text x="999" y="257" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#991B1B">N-k Rack &amp; PDU Capacity Guard</text>
+            <text x="999" y="279" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#18181B">Preserves &gt;= 6/8 Healthy Hosts per Rack</text>
+            <text x="999" y="299" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#7F1D1D">8 / 8 over-budget cordons blocked (100%)</text>
+            <text x="999" y="316" text-anchor="middle" class="svg-mono" font-size="9.0" fill="#991B1B">Escalates chronic 72h flapping hosts to RMA</text>
+          </g>
+
+          <!-- PLANE 3: TELEMETRY CORRELATION & TOPOLOGY SCHEDULER -->
+          <rect x="22" y="372" width="1176" height="152" fill="#F0FDF4" stroke="#065F46" stroke-width="1.6" stroke-dasharray="8 6" />
+          <text x="36" y="396" class="svg-title" font-size="21" font-weight="700" fill="#065F46">③ Collective Wait-For Straggler Detector (CUSUM) &amp; Contiguous Buddy Sub-Ring Scheduler</text>
+
+          <g class="arch-node" data-arch-node="cusum-waitfor" tabindex="0">
+            <rect class="arch-stroke-main" x="40" y="412" width="548" height="96" fill="#DCFCE7" stroke="#18181B" stroke-width="2.1" />
+            <text x="314" y="439" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">CUSUM Drift + Directed Wait-For Graph</text>
+            <text x="314" y="461" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#065F46">Sink Blocker Isolation &amp; Tarjan Deadlock Cycles</text>
+            <text x="314" y="481" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">100 / 100 trace accuracy · 22.3 lead steps · 0.351 ms p50</text>
+            <text x="314" y="498" text-anchor="middle" class="svg-mono" font-size="9.0" fill="#065F46">16:1 timeout alert compression · 0 false peer blames</text>
+          </g>
+
+          <g class="arch-node" data-arch-node="buddy-scheduler" tabindex="0">
+            <rect class="arch-stroke-main" x="626" y="412" width="554" height="96" fill="#E0F2FE" stroke="#18181B" stroke-width="2.1" />
+            <text x="903" y="439" text-anchor="middle" class="svg-title" font-size="22" font-weight="700" fill="#18181B">Buddy Sub-Ring + EASY Backfill Scheduler</text>
+            <text x="903" y="461" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#0369A1">Aligned 1, 2, 4, 8-Node Intra-Rack Rings + Shadow Reservations</text>
+            <text x="903" y="481" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#3F3F46">0 cross-spine splits (vs. 292 Naive FIFO across 720 jobs)</text>
+            <text x="903" y="498" text-anchor="middle" class="svg-mono" font-size="9.0" fill="#0369A1">48.3% mean wait reduction · +2.81 pts mean utilization · 0.38 ms p50</text>
+          </g>
+
+          <!-- PLANE 4: BEDROCK RMA COPILOT & AISLE ROUTING -->
+          <g class="arch-node" data-arch-node="bedrock-rma" tabindex="0">
+            <rect class="arch-stroke-main" x="40" y="556" width="548" height="152" fill="#F3E8FF" stroke="#18181B" stroke-width="2.2" />
+            <text x="314" y="586" text-anchor="middle" class="svg-title" font-size="23" font-weight="700" fill="#5B21B6">④ SOP-Grounded Amazon Bedrock RMA Copilot</text>
+            <text x="314" y="611" text-anchor="middle" class="svg-mono" font-size="10" font-weight="700" fill="#18181B">Amazon Nova Lite (us.amazon.nova-lite-v1:0) · Converse API</text>
+            <text x="314" y="633" text-anchor="middle" class="svg-mono" font-size="9.3" fill="#4C1D95">Pre-verifies Host Drained + N-k Floor + LOTO + Entity Grounding</text>
+            <rect x="94" y="652" width="440" height="32" fill="#FFFFFF" stroke="#18181B" stroke-width="1.6" />
+            <text x="314" y="672" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#334155">⚡ 8 / 8 Cases Passed · 0 Hallucinations · 1,193.4 ms p50</text>
+          </g>
+
+          <line x1="588" y1="632" x2="624" y2="632" stroke="#18181B" stroke-width="2" stroke-dasharray="5 4" />
+          <polygon points="626,632 616,627 616,637" fill="#18181B" />
+
+          <g class="arch-node" data-arch-node="aisle-router" tabindex="0">
+            <rect class="arch-stroke-main" x="626" y="556" width="554" height="152" fill="#F1F5F9" stroke="#18181B" stroke-width="2.2" />
+            <text x="903" y="586" text-anchor="middle" class="svg-title" font-size="23" font-weight="700" fill="#334155">④ Serpentine Aisle Technician Router</text>
+            <text x="903" y="611" text-anchor="middle" class="svg-mono" font-size="10" font-weight="700" fill="#18181B">Data-Hall S-Shape Floor Walk · Parts Cage Origin</text>
+            <text x="903" y="633" text-anchor="middle" class="svg-mono" font-size="9.3" fill="#3F3F46">Sorts DC_RMA_DISPATCH Work Orders by Aisle, Row &amp; Rack Elevation</text>
+            <rect x="683" y="652" width="440" height="32" fill="#DCFCE7" stroke="#18181B" stroke-width="1.6" />
+            <text x="903" y="672" text-anchor="middle" class="svg-mono" font-size="9.6" font-weight="700" fill="#065F46">✓ 52.41% Walk Saved (90.81 m Serpentine vs. 190.81 m FIFO)</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Interactive Component Inspector -->
+      <div class="arch-inspector" id="archInspector">
+        <div class="arch-node-pills" id="archNodePills">
+          <button type="button" class="arch-node-pill active" data-arch-btn="edge-browser">1. Operator Console</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="edge-cloudfront">2. CloudFront</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="edge-s3">3. Private S3 OAC</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="edge-lambda">4. Lambda API</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="canary-sprt">5. SPRT Canary Gate</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="repair-cas">6. SQLite CAS Machine</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="rack-guard">7. N-k Rack Guard</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="cusum-waitfor">8. CUSUM + Wait-For</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="buddy-scheduler">9. Sub-Ring Scheduler</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="bedrock-rma">10. Bedrock RMA Copilot</button>
+          <button type="button" class="arch-node-pill" data-arch-btn="aisle-router">11. Aisle Router</button>
+        </div>
+        <div id="archInspectorDetail"></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 03 · IMPLEMENTATION                                                 -->
+    <!-- =================================================================== -->
+    <section id="implementation" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">03 · Implementation</span>
+          <h2 class="section-title">Implementation</h2>
+          <p class="section-desc">
+            Five Python 3.12 modules in <code>nitro_fleet/</code> implement sequential probability rollout gates, optimistic-locked SQLite WAL repair transitions, collective graph fault isolation, contiguous sub-ring scheduling, and Bedrock Converse RMA synthesis.
+          </p>
+        </div>
+        <span class="tag tag-pass">12 / 12 Unit Tests Passing</span>
+      </div>
+
+      <div class="module-grid">
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>01 · WALD SPRT FIRMWARE CANARY ENGINE</span>
+            <span style="color:#FDE68A;">nitro_fleet/sprt_canary.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Evaluates candidate firmware and driver updates sequentially across <code>Canary_1Pct -&gt; Wave_10Pct -&gt; Wave_50Pct -&gt; Fleet_100Pct</code>, halting regressed builds as soon as failure evidence crosses the upper log-likelihood boundary instead of waiting for a fixed sample window.
+            </div>
+            <div class="prose-block-tech">
+              <code>SPRTCanaryEngine</code> computes exact Wald thresholds <code>A = ln((1 - beta) / alpha) = +3.8918</code> and <code>B = ln(beta / (1 - alpha)) = -3.8918</code> for <code>p0 = 0.01, p1 = 0.06, alpha = 0.02, beta = 0.02</code>. Across <code>500</code> Monte Carlo trials, SPRT needed <code>97.09</code> mean checks overall and <code>77.66</code> checks on regressed builds vs. <code>192</code> fixed Z-test checks (<code>59.55%</code> sample reduction on regressions).
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>02 · SQLITE WAL CAS REPAIR &amp; N-K RACK GUARD</span>
+            <span style="color:#93C5FD;">nitro_fleet/repair_state_machine.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Tracks <code>32</code> UltraServer hosts across <code>4</code> racks through <code>HEALTHY -&gt; SUSPECT_CORDONED -&gt; SOFT_RESET_TRIAL -&gt; DC_RMA_DISPATCH -&gt; BURN_IN_QUALIFICATION -&gt; HEALTHY</code> while preventing concurrent split-brain updates, rack over-draining, and premature capacity return.
+            </div>
+            <div class="prose-block-tech">
+              <code>transition_host()</code> executes inside <code>BEGIN IMMEDIATE</code> with SQLite WAL, enforcing <code>WHERE host_id = ? AND version = ?</code> (<code>20 / 20</code> 6-worker CAS races won by a single thread, <code>0.219 ms</code> <code>p50</code>), per-rack <code>max_unavailable_per_rack = 2</code> checks (<code>8 / 8</code> over-budget cordons blocked), SHA-256 transition chaining (<code>0.618 ms</code> verify), and serpentine aisle routing (<code>52.41%</code> walk saved).
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>03 · CUSUM + WAIT-FOR &amp; SUB-RING SCHEDULER</span>
+            <span style="color:#6EE7B7;">nitro_fleet/topology_scheduler.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Separates the single degraded rank or multi-rank deadlock cycle from downstream blocked peers during collective communication, then schedules incoming training gangs onto contiguous healthy intra-rack sub-rings around cordoned hosts.
+            </div>
+            <div class="prose-block-tech">
+              <code>analyze_collective_trace()</code> combines robust warmup median/MAD normalization, tabular upper <code>CUSUM</code> (<code>k = 0.5, h = 4.5</code>), sink reachability, and Tarjan strongly connected components (<code>100 / 100</code> trace accuracy in <code>0.351 ms</code> <code>p50</code>). <code>schedule_workload_queue()</code> pairs aligned power-of-two Buddy Sub-Rings with <code>EASY</code> shadow-time backfill (<code>0</code> cross-spine splits across <code>720</code> jobs vs. <code>292</code> under Naive FIFO).
+            </div>
+          </div>
+        </div>
+
+        <div class="module-card">
+          <div class="module-card-head">
+            <span>04 · SOP-GROUNDED BEDROCK RMA COPILOT &amp; API</span>
+            <span style="color:#C4B5FD;">nitro_fleet/rma_copilot.py · server.py</span>
+          </div>
+          <div class="module-card-body">
+            <div class="prose-block">
+              Generates concise floor technician repair briefs and firmware rollback instructions with Amazon Bedrock while enforcing hard deterministic gates on workload drain status, rack capacity floors, and electrical Lockout/Tagout sign-off.
+            </div>
+            <div class="prose-block-tech">
+              <code>RMACopilot.synthesize_ticket()</code> retrieves the matching hardware runbook (<code>SOP-HBM-ECC-01</code> through <code>SOP-CANARY-SPRT-04</code>), evaluates <code>evaluate_deterministic_guardrails()</code> before calling <code>us.amazon.nova-lite-v1:0</code> via Converse API (<code>1,193.4 ms</code> <code>p50</code> across <code>8 / 8</code> passing cases), and runs regex entity grounding (<code>0</code> hallucinated host or SOP IDs).
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 04 · TRADE-OFFS                                                     -->
+    <!-- =================================================================== -->
+    <section id="tradeoffs" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">04 · Trade-Offs</span>
+          <h2 class="section-title">Trade-Offs</h2>
+          <p class="section-desc">
+            Every control-plane mechanism in NitroUltraFleet balances statistical sensitivity, rack availability floors, ring contiguity, and serverless operating cost.
+          </p>
+        </div>
+        <span class="tag tag-soft">Architectural Decisions</span>
+      </div>
+
+      <div class="module-grid" style="margin-bottom:0;">
+        <div class="card">
+          <span class="step-badge">01 · WALD SPRT VS FIXED-HORIZON Z-TEST</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Variable Wave Duration vs. Early Regression Halt</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            A fixed-horizon binomial test gives a predictable wave schedule (<code>192</code> checks every time) at the cost of exposing canary hosts long after a severe regression is obvious. Wald SPRT introduces variable wave duration with discrete-step boundary overshoot (<code>3.6%</code> empirical Type-II rate at the exact <code>p1 = 0.06</code> boundary), cutting regressed build exposure by <code>59.55%</code> on average and halting an <code>8.5%</code> EFA CRC bug in <code>16</code> checks.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="step-badge">02 · STRICT N-K RACK FLOOR VS IMMEDIATE CORDON</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Deferring Automated Cordons When Racks Hit Budget</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            Enforcing <code>max_unavailable_per_rack = 2</code> on 8-host racks guarantees at least <code>6</code> healthy nodes remain online per Top-of-Rack switch, preventing correlated telemetry noise from draining a whole rack. The trade-off is that a genuine 3rd simultaneous host fault in the same rack pauses automated cordoning and pages an operator for manual capacity review.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="step-badge">03 · POWER-OF-TWO BUDDY RINGS VS GREEDY PACKING</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Internal Ring Alignment vs. Zero Cross-Spine Penalty</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            Restricting gang placements to aligned <code>1, 2, 4, 8, 16</code>-node Buddy Sub-Rings can hold an 8-node job briefly when 8 free slots are split across two partially cordoned racks. In exchange, it eliminates all <code>292</code> cross-spine ring fragmentations seen in Naive FIFO across <code>720</code> benchmark jobs, and <code>EASY</code> Backfill reclaims idle holes for short 1-node and 2-node validation runs (<code>48.3%</code> lower mean wait).
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="step-badge">04 · DETERMINISTIC GATES VS AUTONOMOUS LLM ACTIONS</span>
+          <h3 style="font-size:1.08rem; font-weight:800; margin:0.45rem 0;">Hard Pre-Flight Checks Around Bedrock Ticket Synthesis</h3>
+          <p style="font-size:0.92rem; color:var(--ink-muted); line-height:1.68;">
+            Letting an LLM decide directly whether a technician may pull a server sled risks unsafe actions under ambiguous operator notes. NitroUltraFleet evaluates <code>host_state == DC_RMA_DISPATCH</code>, rack <code>N-k</code> capacity floors, and <code>loto_verified</code> in sub-millisecond Python rules first, using Amazon Bedrock (<code>1,193.4 ms</code> <code>p50</code>) strictly to format grounded human-readable SOP instructions.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 05 · LIVE DEMO                                                      -->
+    <!-- =================================================================== -->
+    <section id="studio" class="section">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">05 · Live Demo</span>
+          <h2 class="section-title">Live Demo</h2>
+          <p class="section-desc">
+            All four interactive consoles execute live requests against the AWS Lambda <code>/api/*</code> control plane: running sequential SPRT wave rollouts, committing CAS-locked SQLite host transitions, isolating collective stragglers and packing sub-rings, and synthesizing SOP-grounded RMA tickets with Amazon Bedrock.
+          </p>
+        </div>
+        <span class="tag tag-accent">Live AWS /api/* Backend</span>
+      </div>
+
+      <div class="tab-bar" role="tablist" aria-label="NitroUltraFleet Interactive Demo Tabs">
+        <button type="button" class="tab-btn active" data-tab="sprt-canary" role="tab" aria-selected="true" onclick="switchTab('sprt-canary')">
+          <span class="tab-btn-eyebrow">Tab 01 · Rollout Safety</span>
+          <span class="tab-btn-title">1. SPRT Canary Firmware Rollout Gate</span>
+          <span class="tab-btn-desc">Run Wald log-likelihood ratio wave gating across Canary 1% through Fleet 100%</span>
+          <span class="tab-btn-metric" id="tabMetric1"></span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="repair-lifecycle" role="tab" aria-selected="false" onclick="switchTab('repair-lifecycle')">
+          <span class="tab-btn-eyebrow">Tab 02 · SQLite CAS + N-k</span>
+          <span class="tab-btn-title">2. Host Repair Lifecycle &amp; Rack Fault-Domain Guard</span>
+          <span class="tab-btn-desc">Step hosts through repair states, trigger 4-thread CAS races, and test rack budgets</span>
+          <span class="tab-btn-metric" id="tabMetric2"></span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="topology-scheduler" role="tab" aria-selected="false" onclick="switchTab('topology-scheduler')">
+          <span class="tab-btn-eyebrow">Tab 03 · CUSUM + Sub-Rings</span>
+          <span class="tab-btn-title">3. Collective Straggler Finder &amp; Sub-Ring Scheduler</span>
+          <span class="tab-btn-desc">Isolate root collective blockers and compare Buddy + EASY Backfill vs. Naive FIFO</span>
+          <span class="tab-btn-metric" id="tabMetric3"></span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="rma-copilot" role="tab" aria-selected="false" onclick="switchTab('rma-copilot')">
+          <span class="tab-btn-eyebrow">Tab 04 · Amazon Bedrock</span>
+          <span class="tab-btn-title">4. SOP-Grounded DC Technician &amp; RMA Copilot</span>
+          <span class="tab-btn-desc">Synthesize LOTO-gated floor tickets and canary rollback briefs on Nova Lite</span>
+          <span class="tab-btn-metric" id="tabMetric4"></span>
+        </button>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB PANEL 1: SPRT CANARY FIRMWARE ROLLOUT GATE                    -->
+      <!-- ================================================================= -->
+      <div class="tab-panel active" id="panel-sprt-canary" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">1. SPRT Canary Firmware Rollout Gate</h3>
+            <p class="sim-desc">Select a firmware candidate preset or adjust baseline rate <code>p0</code>, regression threshold <code>p1</code>, and observed failure rate to run live Wald sequential evaluation across <code>Canary_1Pct -&gt; Wave_10Pct -&gt; Wave_50Pct -&gt; Fleet_100Pct</code>.</p>
+          </div>
+          <span class="tag tag-soft">POST /api/canary/sprt</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="control-label">
+              <span>Firmware Rollout Presets</span>
+              <span class="mono" style="font-size:0.69rem; color:var(--ink-muted);">Click to Load &amp; Evaluate</span>
+            </div>
+            <div class="preset-grid" id="sprtPresetGrid">
+              <button type="button" class="preset-btn active" data-sprt-preset="efa_crc_regression" onclick="runSprtPreset('efa_crc_regression')">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">efa-nic-fw-3.8.0-rc2</span>
+                <span style="font-weight:800; font-size:0.81rem;">400G EFA Link CRC Regression (8.5%)</span>
+              </button>
+              <button type="button" class="preset-btn" data-sprt-preset="clean_nitro_fw" onclick="runSprtPreset('clean_nitro_fw')">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">nitro-card-fw-5.14.2</span>
+                <span style="font-weight:800; font-size:0.81rem;">Clean Nitro Update (0.8% Noise)</span>
+              </button>
+              <button type="button" class="preset-btn" data-sprt-preset="wave2_rev_b_psu_bug" onclick="runSprtPreset('wave2_rev_b_psu_bug')">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">bmc-power-ctl-4.2.1-rc1</span>
+                <span style="font-weight:800; font-size:0.81rem;">Rev-B Rack Bug in Wave_10Pct (9.2%)</span>
+              </button>
+              <button type="button" class="preset-btn" data-sprt-preset="neuron_driver_borderline" onclick="runSprtPreset('neuron_driver_borderline')">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">neuron-rt-2.21.4-rc3</span>
+                <span style="font-weight:800; font-size:0.81rem;">Borderline Init Regression (6.2%)</span>
+              </button>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.65rem; margin-bottom:0.75rem;">
+              <div>
+                <label class="control-label" for="sprtBuildId">Build Identifier</label>
+                <input type="text" id="sprtBuildId" value="efa-nic-fw-3.8.0-rc2" />
+              </div>
+              <div>
+                <label class="control-label" for="sprtObsRate">Custom Wave Failure Rate (0..0.5)</label>
+                <input type="number" id="sprtObsRate" step="0.005" min="0.001" max="0.50" value="0.085" />
+              </div>
+              <div>
+                <label class="control-label" for="sprtP0">Baseline Rate p0 (H0)</label>
+                <input type="number" id="sprtP0" step="0.005" min="0.002" max="0.20" value="0.01" />
+              </div>
+              <div>
+                <label class="control-label" for="sprtP1">Regression Rate p1 (H1)</label>
+                <input type="number" id="sprtP1" step="0.005" min="0.01" max="0.40" value="0.06" />
+              </div>
+              <div>
+                <label class="control-label" for="sprtAlpha">Type-I Alpha (False Halt)</label>
+                <input type="number" id="sprtAlpha" step="0.005" min="0.005" max="0.15" value="0.02" />
+              </div>
+              <div>
+                <label class="control-label" for="sprtBeta">Type-II Beta (False Promote)</label>
+                <input type="number" id="sprtBeta" step="0.005" min="0.005" max="0.15" value="0.02" />
+              </div>
+            </div>
+
+            <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-accent" id="btnRunCustomSprt" onclick="runCustomSprt()">▶ Evaluate Custom SPRT Stream</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="verdict-banner verdict-deny" id="sprtVerdictBanner"></div>
+            <div class="wave-strip" id="sprtWaveStrip"></div>
+            <div class="code-header">
+              <span>WALD LOG-LIKELIHOOD RATIO TRAJECTORY (FIRST HALTED OR FINAL WAVE)</span>
+              <span id="sprtChartMeta">A = +3.8918 · B = -3.8918</span>
+            </div>
+            <div style="border:2px solid var(--border); background:#FFFFFF; padding:0.55rem; margin-bottom:0.85rem;" id="sprtSvgContainer"></div>
+            <div class="code-header">
+              <span>LIVE /api/canary/sprt SUMMARY</span>
+              <span id="sprtMsBadge">0.1 ms</span>
+            </div>
+            <pre class="code-box" id="sprtJsonBox" style="max-height:190px;"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB PANEL 2: HOST REPAIR LIFECYCLE & RACK FAULT-DOMAIN GUARD      -->
+      <!-- ================================================================= -->
+      <div class="tab-panel" id="panel-repair-lifecycle" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">2. Host Repair Lifecycle &amp; Rack Fault-Domain Guard</h3>
+            <p class="sim-desc">Click any host across the <code>4</code> UltraServer racks to inspect its SQLite version and state, advance it along the repair lifecycle, trigger a 4-thread concurrent CAS race, or verify the <code>N-k</code> per-rack capacity guard.</p>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary" onclick="resetFleetState()">↺ Reset 32-Host Pod</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.65rem;">
+              <span class="mono" style="font-size:0.74rem; font-weight:700;">32-HOST POD · MAX k=2 UNAVAILABLE PER 8-HOST RACK</span>
+              <span class="tag tag-pass" id="walChainStatusTag">SQLite WAL Chain: VALID</span>
+            </div>
+            <div class="rack-grid" id="rackGridContainer"></div>
+
+            <div style="border-top:1.5px dashed var(--border); padding-top:0.8rem;">
+              <div class="control-label">
+                <span id="selectedHostHeading">Selected Host: usv-r01-h03</span>
+                <span class="tag tag-warn" id="selectedHostStateBadge">SUSPECT_CORDONED</span>
+              </div>
+              <div class="prose-block-tech" id="selectedHostMeta" style="margin-bottom:0.75rem; font-size:0.8rem;"></div>
+
+              <div style="display:flex; flex-wrap:wrap; gap:0.48rem; margin-bottom:0.7rem;">
+                <button type="button" class="btn btn-secondary" onclick="transitionSelectedHost('SUSPECT_CORDONED', 'NEURONLINK_CRC_FLAP')">1. Cordon Host</button>
+                <button type="button" class="btn btn-secondary" onclick="transitionSelectedHost('SOFT_RESET_TRIAL')">2. Soft Reset Trial</button>
+                <button type="button" class="btn btn-secondary" onclick="transitionSelectedHost('DC_RMA_DISPATCH', 'HBM_UNCORRECTABLE_ECC')">3. Dispatch DC RMA</button>
+                <button type="button" class="btn btn-secondary" onclick="transitionSelectedHost('BURN_IN_QUALIFICATION')">4. Start Burn-In</button>
+                <button type="button" class="btn btn-accent" onclick="transitionSelectedHost('HEALTHY')">5. Return to HEALTHY</button>
+              </div>
+
+              <div style="display:flex; flex-wrap:wrap; gap:0.48rem;">
+                <button type="button" class="btn btn-obsidian" onclick="runLiveCasRace()">⚡ Run 4-Thread Concurrent CAS Race</button>
+                <button type="button" class="btn btn-danger" onclick="testOverBudgetCordon()">🛑 Test 3rd Rack Cordon (N-k Block)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="verdict-banner verdict-allow" id="repairOutcomeBanner">
+              <div><strong>● SQLITE WAL STATE MACHINE READY</strong><br/><span style="font-size:0.82rem;">Click a transition button, run a 4-thread CAS race, or test an over-budget rack cordon on the left.</span></div>
+              <span class="tag tag-pass">CAS LOCKED</span>
+            </div>
+
+            <div class="code-header">
+              <span>SERPENTINE AISLE DC TECHNICIAN ROUTE (DC_RMA_DISPATCH QUEUE)</span>
+              <span id="aisleSavingsBadge">Walk Optimized</span>
+            </div>
+            <div class="table-wrap" style="margin-bottom:0.9rem;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Stop</th>
+                    <th>Host</th>
+                    <th>Location</th>
+                    <th>Syndrome</th>
+                  </tr>
+                </thead>
+                <tbody id="aisleWorkOrdersBody"></tbody>
+              </table>
+            </div>
+
+            <div class="code-header">
+              <span>SHA-256 HASH-CHAINED SQLITE TRANSITION LOG</span>
+              <span id="repairLogCountBadge">Recent Events</span>
+            </div>
+            <div class="table-wrap" style="margin-bottom:0.85rem; max-height:210px; overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Host</th>
+                    <th>Transition</th>
+                    <th>Ver</th>
+                    <th>SHA-256</th>
+                  </tr>
+                </thead>
+                <tbody id="repairTransitionsBody"></tbody>
+              </table>
+            </div>
+
+            <div class="code-header">
+              <span>LAST /api/repair/transition RESPONSE</span>
+              <span id="repairMsBadge">0.2 ms</span>
+            </div>
+            <pre class="code-box" id="repairConsoleBox" style="max-height:150px;"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB PANEL 3: COLLECTIVE STRAGGLER FINDER & SUB-RING SCHEDULER     -->
+      <!-- ================================================================= -->
+      <div class="tab-panel" id="panel-topology-scheduler" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">3. Collective Straggler Finder &amp; Sub-Ring Scheduler</h3>
+            <p class="sim-desc">Run <code>CUSUM</code> change-point detection and directed <code>Wait-For</code> graph isolation on 16-rank collective traces, then pack multi-node training gangs onto contiguous healthy Buddy Sub-Rings around the live cordoned nodes.</p>
+          </div>
+          <span class="tag tag-soft">POST /api/scheduler/allocate</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <label class="control-label" for="tracePresetSelect">Collective Telemetry Trace</label>
+            <select id="tracePresetSelect" style="margin-bottom:0.8rem;" onchange="runLiveScheduler()">
+              <option value="rank11_nic_straggler">Rank 11 EFA Retransmit Straggler (16-Rank Ring AllReduce)</option>
+              <option value="rank05_thermal_throttle">Rank 05 Thermal Clock Cap Straggler (16-Rank Hybrid Ring)</option>
+              <option value="dual_rank_deadlock_cycle">3-Rank Tag Sync Deadlock Cycle (Ranks 3 -&gt; 7 -&gt; 12 -&gt; 3)</option>
+            </select>
+
+            <label class="control-label" for="workloadPresetSelect">Cluster Job Queue Preset (Synced With Live Cordoned Hosts)</label>
+            <select id="workloadPresetSelect" style="margin-bottom:0.85rem;" onchange="runLiveScheduler()">
+              <option value="mixed_training_and_ci">Mixed Queue: 8/16-Node Pretrain Gangs + 1/2/4-Node LoRA &amp; Smoke</option>
+              <option value="heavy_gang_contention">Heavy Gang Contention: Backfilling Around 16-Node Dual-Rack Gang</option>
+            </select>
+
+            <button type="button" class="btn btn-accent" id="btnRunScheduler" onclick="runLiveScheduler()" style="margin-bottom:0.95rem;">▶ Run CUSUM Isolation + Sub-Ring Allocator</button>
+
+            <div class="verdict-banner verdict-allow" id="stragglerBanner"></div>
+
+            <div class="code-header">
+              <span>TOP RANK DIAGNOSTICS (SORTED BY BLOCKED WAITERS &amp; PEAK CUSUM)</span>
+              <span id="stragglerTimingBadge">0.35 ms</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Tail Step</th>
+                    <th>Peak CUSUM</th>
+                    <th>Lead Steps</th>
+                    <th>Waiters</th>
+                    <th>Role</th>
+                  </tr>
+                </thead>
+                <tbody id="rankDiagnosticsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="code-header">
+              <span>BUDDY SUB-RING + EASY BACKFILL VS. NAIVE LEAST-ALLOCATED + FIFO</span>
+              <span id="schedSolveBadge">0.38 ms</span>
+            </div>
+            <div class="table-wrap" style="margin-bottom:0.95rem;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Buddy + EASY Backfill</th>
+                    <th>Naive + Strict FIFO</th>
+                    <th>Delta</th>
+                  </tr>
+                </thead>
+                <tbody id="schedComparisonBody"></tbody>
+              </table>
+            </div>
+
+            <div class="code-header">
+              <span>INITIAL WAVE CONTIGUOUS RACK SUB-RING MAP (CORDONED NODES AVOIDED)</span>
+              <span>4 Racks × 8 Slots</span>
+            </div>
+            <div style="border:2px solid var(--border); background:var(--bg-paper); padding:0.75rem; margin-bottom:0.95rem;" id="subRingMapBox"></div>
+
+            <div class="code-header">
+              <span>DISCRETE-EVENT SCHEDULE TIMELINE (BUDDY + EASY BACKFILL)</span>
+              <span id="backfillCountBadge">Backfilled Jobs</span>
+            </div>
+            <div class="table-wrap" style="max-height:220px; overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Job</th>
+                    <th>Nodes</th>
+                    <th>Start..End</th>
+                    <th>Wait</th>
+                    <th>Racks</th>
+                    <th>Mode</th>
+                  </tr>
+                </thead>
+                <tbody id="schedTimelineBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- TAB PANEL 4: SOP-GROUNDED DC TECHNICIAN & RMA COPILOT             -->
+      <!-- ================================================================= -->
+      <div class="tab-panel" id="panel-rma-copilot" role="tabpanel">
+        <div class="sim-header">
+          <div>
+            <h3 class="sim-title">4. SOP-Grounded DC Technician &amp; RMA Copilot</h3>
+            <p class="sim-desc">Invoke Amazon Bedrock (<code>us.amazon.nova-lite-v1:0</code>) to generate a technician repair order or canary halt rollback brief. Deterministic Python guardrails block physical hardware touch whenever drain, rack <code>N-k</code> floor, or LOTO requirements fail.</p>
+          </div>
+          <span class="tag tag-accent">POST /api/copilot/rma · Bedrock Nova Lite</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="control-label">
+              <span>Floor &amp; Canary Incident Scenarios</span>
+              <span class="mono" style="font-size:0.69rem; color:var(--ink-muted);">Live Bedrock Converse Call</span>
+            </div>
+            <div class="preset-grid" id="copilotPresetGrid">
+              <button type="button" class="preset-btn active" data-rma-idx="0" onclick="loadRmaScenario(0)">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">SOP-HBM-ECC-01 · AUTHORIZED</span>
+                <span style="font-weight:800; font-size:0.81rem;">Drained HBM ECC Blade Swap (usv-r02-h05)</span>
+              </button>
+              <button type="button" class="preset-btn" data-rma-idx="1" onclick="loadRmaScenario(1)">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">SOP-OPTIC-400G-02 · BLOCKED</span>
+                <span style="font-weight:800; font-size:0.81rem;">Un-Drained Host Pull Attempt (usv-r01-h03)</span>
+              </button>
+              <button type="button" class="preset-btn" data-rma-idx="2" onclick="loadRmaScenario(2)">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">SOP-PDU-PHASE-03 · BLOCKED</span>
+                <span style="font-weight:800; font-size:0.81rem;">Missing Electrical LOTO Sign-Off (usv-r04-h01)</span>
+              </button>
+              <button type="button" class="preset-btn" data-rma-idx="3" onclick="loadRmaScenario(3)">
+                <span class="mono" style="font-size:0.65rem; font-weight:700;">SOP-CANARY-SPRT-04 · ROLLBACK</span>
+                <span style="font-weight:800; font-size:0.81rem;">Canary_1Pct Firmware Halt Rollback Brief</span>
+              </button>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.65rem; margin-bottom:0.75rem;">
+              <div>
+                <label class="control-label" for="rmaIncidentType">Incident Type</label>
+                <select id="rmaIncidentType">
+                  <option value="host_rma">host_rma (Physical FRU Ticket)</option>
+                  <option value="canary_halt">canary_halt (SPRT Wave Rollback)</option>
+                </select>
+              </div>
+              <div>
+                <label class="control-label" for="rmaHostId">Target Host</label>
+                <input type="text" id="rmaHostId" value="usv-r02-h05" />
+              </div>
+              <div>
+                <label class="control-label" for="rmaHostState">Host Lifecycle State</label>
+                <select id="rmaHostState">
+                  <option value="DC_RMA_DISPATCH">DC_RMA_DISPATCH (Drained)</option>
+                  <option value="SUSPECT_CORDONED">SUSPECT_CORDONED (Not Drained)</option>
+                  <option value="SOFT_RESET_TRIAL">SOFT_RESET_TRIAL (Reset Active)</option>
+                  <option value="HEALTHY">HEALTHY</option>
+                </select>
+              </div>
+              <div>
+                <label class="control-label" for="rmaRackHealthy">Rack Healthy Hosts (of 8)</label>
+                <input type="number" id="rmaRackHealthy" min="1" max="8" value="7" />
+              </div>
+            </div>
+
+            <label class="control-label" for="rmaSyndrome">Hardware or Canary Syndrome Code</label>
+            <input type="text" id="rmaSyndrome" value="HBM_UNCORRECTABLE_ECC" style="margin-bottom:0.7rem;" />
+
+            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.84rem; font-weight:700; margin-bottom:0.75rem; cursor:pointer;">
+              <input type="checkbox" id="rmaLotoCheck" checked />
+              <span>Technician Confirmed Lockout/Tagout &amp; ESD Checklist (<code>loto_verified</code>)</span>
+            </label>
+
+            <label class="control-label" for="rmaNote">Operator Shift Note</label>
+            <textarea id="rmaNote" rows="2" style="margin-bottom:0.8rem;">Uncorrectable HBM ECC syndrome persisted across soft reset; spare blade staged in Hall-C parts cage.</textarea>
+
+            <div style="display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-accent" id="btnInvokeCopilot" onclick="invokeLiveRmaCopilot()">🤖 Generate Grounded Brief via Amazon Bedrock</button>
+              <span class="mono" style="font-size:0.71rem; color:var(--ink-muted);" id="rmaStatusHint">Ready</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="verdict-banner verdict-allow" id="rmaGuardrailBanner"></div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:0.45rem; margin-bottom:0.85rem;" id="rmaGuardrailTags"></div>
+
+            <div class="prose-block" id="rmaMatchedSopBox" style="margin-bottom:0.85rem; font-size:0.85rem;"></div>
+
+            <div class="code-header">
+              <span>AMAZON BEDROCK (us.amazon.nova-lite-v1:0) ACTION BRIEF</span>
+              <span id="rmaLatencyBadge">1,193.4 ms p50</span>
+            </div>
+            <pre class="code-box" id="rmaBriefOutput" style="max-height:260px;"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 06 · BENCHMARKS                                                     -->
+    <!-- =================================================================== -->
+    <section id="benchmarks" class="section" style="border-bottom:none;">
+      <div class="section-header">
+        <div>
+          <span class="section-kicker">06 · Benchmarks</span>
+          <h2 class="section-title">Benchmarks</h2>
+          <p class="section-desc" id="benchSubHeader"></p>
+        </div>
+        <span class="tag tag-pass" id="benchTimestampTag"></span>
+      </div>
+
+      <div class="grid-equal" style="margin-bottom:1.3rem;">
+        <div class="card">
+          <div class="code-header">
+            <span>CONTROL-PLANE STAGE LATENCY PROFILE (LOG SCALE)</span>
+            <span>Median (p50)</span>
+          </div>
+          <div style="border:2px solid var(--border); padding:0.5rem; background:#FAF7F2;" id="benchLatencySvgBox"></div>
+          <div class="bar-group" id="benchAccuracyBars"></div>
+        </div>
+
+        <div class="card">
+          <div class="code-header">
+            <span>WALD SPRT STAGED ROLLOUT PRESET RESULTS</span>
+            <span>vs. 768 Fixed 4-Wave Checks</span>
+          </div>
+          <div class="table-wrap" style="margin-bottom:0.9rem;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Build ID</th>
+                  <th>Verdict</th>
+                  <th>Halted Wave</th>
+                  <th>Checks</th>
+                  <th>Saved</th>
+                </tr>
+              </thead>
+              <tbody id="benchSprtPresetsBody"></tbody>
+            </table>
+          </div>
+
+          <div class="code-header">
+            <span>SCHEDULER MONTE CARLO (40 QUEUES · 720 JOBS)</span>
+            <span>2 Cordoned Hosts / Run</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Policy</th>
+                  <th>Mean Util</th>
+                  <th>Mean Wait</th>
+                  <th>Cross-Spine Splits</th>
+                </tr>
+              </thead>
+              <tbody id="benchSchedulerMcBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="code-header">
+          <span>LIVE AMAZON BEDROCK (us.amazon.nova-lite-v1:0) RMA &amp; CANARY GUARDRAIL SUITE</span>
+          <span id="benchBedrockSummaryTag">8 / 8 Passed · 0 Hallucinations</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Case</th>
+                <th>Scenario</th>
+                <th>Host</th>
+                <th>SOP</th>
+                <th>Guardrail Verdict</th>
+                <th>Grounded</th>
+                <th>Latency</th>
+                <th>Tokens</th>
+              </tr>
+            </thead>
+            <tbody id="benchBedrockCasesBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>
+        <strong>NitroUltraFleet</strong> · Cluster Rollout, Repair Lifecycle &amp; Contiguous Sub-Ring Scheduler · Deployed on Amazon CloudFront + Private S3 OAC + AWS Lambda + Amazon Bedrock
+      </div>
+      <div class="mono" style="font-size:0.74rem;">
+        $0.00 Idle Infrastructure · 12 / 12 Unit Tests · Zero Fabricated Hardware Metrics
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      let MEASURED_BENCHMARKS = {
+        "project": "NitroUltraFleet",
+        "benchmark_timestamp_utc": "2026-11-25T23:06:42Z",
+        "total_benchmark_runtime_sec": 11.22,
+        "environment": {
+          "python_version": "3.12",
+          "aws_region": "us-west-2",
+          "bedrock_model": "us.amazon.nova-lite-v1:0"
+        },
+        "headline_kpis": {
+          "sprt_trials_total": 500,
+          "sprt_sample_reduction_pct": 49.43,
+          "sprt_regressed_halt_reduction_pct": 59.55,
+          "sprt_false_promotion_rate_pct": 3.6,
+          "sprt_false_halt_rate_pct": 1.2,
+          "sprt_mean_samples": 97.09,
+          "sprt_fixed_z_samples": 192,
+          "cas_races_won_cleanly": 20,
+          "cas_races_total": 20,
+          "n_minus_k_blocked": 8,
+          "n_minus_k_probes": 8,
+          "repair_transition_p50_ms": 0.219,
+          "sqlite_wal_verify_ms": 0.618,
+          "aisle_walk_saved_pct": 52.41,
+          "straggler_accuracy_pct": 100.0,
+          "straggler_traces_matched": 100,
+          "straggler_traces_total": 100,
+          "straggler_lead_steps": 22.3,
+          "straggler_p50_ms": 0.351,
+          "scheduler_utilization_gain_pts": 2.81,
+          "scheduler_buddy_util_pct": 64.21,
+          "scheduler_naive_util_pct": 61.4,
+          "scheduler_wait_reduction_pct": 48.3,
+          "scheduler_buddy_fragmentations": 0,
+          "scheduler_naive_fragmentations": 292,
+          "scheduler_solve_p50_ms": 0.38,
+          "bedrock_cases_passed": 8,
+          "bedrock_cases_total": 8,
+          "bedrock_p50_ms": 1193.4,
+          "bedrock_p95_ms": 1837.7,
+          "bedrock_hallucinations": 0
+        },
+        "sprt_rollout_presets": [
+          {
+            "scenario_id": "efa_crc_regression",
+            "build_id": "efa-nic-fw-3.8.0-rc2",
+            "title": "Regressed 400G EFA Firmware (8.5% Link CRC Rate)",
+            "overall_verdict": "HALTED_AND_ROLLED_BACK",
+            "halted_at_wave": "Canary_1Pct",
+            "total_samples": 16,
+            "fixed_four_wave_samples": 768,
+            "sample_reduction_vs_full_pct": 97.92
+          },
+          {
+            "scenario_id": "clean_nitro_fw",
+            "build_id": "nitro-card-fw-5.14.2",
+            "title": "Clean Nitro Hypervisor Update (0.8% Baseline Noise)",
+            "overall_verdict": "PROMOTED_TO_FLEET_100PCT",
+            "halted_at_wave": "NONE (All 4 Promoted)",
+            "total_samples": 517,
+            "fixed_four_wave_samples": 768,
+            "sample_reduction_vs_full_pct": 32.68
+          },
+          {
+            "scenario_id": "wave2_rev_b_psu_bug",
+            "build_id": "bmc-power-ctl-4.2.1-rc1",
+            "title": "Rev-B Rack Bug Caught in Wave_10Pct (9.2% Failure)",
+            "overall_verdict": "HALTED_AND_ROLLED_BACK",
+            "halted_at_wave": "Wave_10Pct",
+            "total_samples": 171,
+            "fixed_four_wave_samples": 768,
+            "sample_reduction_vs_full_pct": 77.73
+          },
+          {
+            "scenario_id": "neuron_driver_borderline",
+            "build_id": "neuron-rt-2.21.4-rc3",
+            "title": "Moderate Collective Init Regression (6.2% Failure)",
+            "overall_verdict": "HALTED_AND_ROLLED_BACK",
+            "halted_at_wave": "Canary_1Pct",
+            "total_samples": 48,
+            "fixed_four_wave_samples": 768,
+            "sample_reduction_vs_full_pct": 93.75
+          }
+        ],
+        "scheduler_monte_carlo": {
+          "num_workloads": 40,
+          "jobs_per_workload": 18,
+          "total_jobs_scheduled": 720,
+          "buddy_easy_mean_utilization_pct": 64.21,
+          "naive_fifo_mean_utilization_pct": 61.4,
+          "mean_utilization_gain_pct_pts": 2.81,
+          "buddy_easy_mean_wait_steps": 4.56,
+          "naive_fifo_mean_wait_steps": 8.82,
+          "mean_wait_reduction_pct": 48.3,
+          "buddy_cross_spine_fragmentations": 0,
+          "naive_cross_spine_fragmentations": 292,
+          "total_easy_backfilled_jobs": 283,
+          "solve_p50_ms": 0.38,
+          "solve_p95_ms": 0.461
+        },
+        "bedrock_rma_copilot_benchmark": {
+          "model_id": "us.amazon.nova-lite-v1:0",
+          "aws_region": "us-west-2",
+          "cases_total": 8,
+          "cases_passed": 8,
+          "pass_rate_pct": 100.0,
+          "hallucinated_entities_total": 0,
+          "bedrock_p50_ms": 1193.4,
+          "bedrock_p95_ms": 1837.7,
+          "mean_tokens_per_call": 639.8,
+          "case_results": [
+            { "case_id": "RMA-01", "title": "Authorized HBM Uncorrectable ECC Blade Swap", "host_id": "usv-r02-h05", "matched_sop_id": "SOP-HBM-ECC-01", "guardrail_verdict": "AUTHORIZED_DC_RMA_TOUCH", "grounded": true, "passed": true, "bedrock_latency_ms": 1837.69, "total_tokens": 644 },
+            { "case_id": "RMA-02", "title": "Authorized 400G OSFP Optical Transceiver Swap", "host_id": "usv-r03-h02", "matched_sop_id": "SOP-OPTIC-400G-02", "guardrail_verdict": "AUTHORIZED_DC_RMA_TOUCH", "grounded": true, "passed": true, "bedrock_latency_ms": 1193.41, "total_tokens": 626 },
+            { "case_id": "RMA-03", "title": "Blocked Un-Drained Host Physical Pull Attempt", "host_id": "usv-r01-h03", "matched_sop_id": "SOP-OPTIC-400G-02", "guardrail_verdict": "HOLD_GUARDRAIL_BLOCKED", "grounded": true, "passed": true, "bedrock_latency_ms": 1163.24, "total_tokens": 644 },
+            { "case_id": "RMA-04", "title": "Blocked Missing Electrical LOTO Sign-Off on PSU Rail", "host_id": "usv-r04-h01", "matched_sop_id": "SOP-PDU-PHASE-03", "guardrail_verdict": "HOLD_GUARDRAIL_BLOCKED", "grounded": true, "passed": true, "bedrock_latency_ms": 1792.47, "total_tokens": 615 },
+            { "case_id": "RMA-05", "title": "Blocked N-k Rack Capacity Floor Violation (5/8 Healthy)", "host_id": "usv-r02-h06", "matched_sop_id": "SOP-HBM-ECC-01", "guardrail_verdict": "HOLD_GUARDRAIL_BLOCKED", "grounded": true, "passed": true, "bedrock_latency_ms": 1231.18, "total_tokens": 644 },
+            { "case_id": "CAN-06", "title": "SPRT Canary_1Pct Halt & Rollback Brief (efa-nic-fw-3.8.0-rc2)", "host_id": "usv-r01-h00", "matched_sop_id": "SOP-CANARY-SPRT-04", "guardrail_verdict": "AUTHORIZED_ROLLBACK", "grounded": true, "passed": true, "bedrock_latency_ms": 1116.25, "total_tokens": 691 },
+            { "case_id": "CAN-07", "title": "SPRT Wave_10Pct Rev-B Power Controller Rollback Brief", "host_id": "usv-r03-h04", "matched_sop_id": "SOP-CANARY-SPRT-04", "guardrail_verdict": "AUTHORIZED_ROLLBACK", "grounded": true, "passed": true, "bedrock_latency_ms": 1040.96, "total_tokens": 666 },
+            { "case_id": "RMA-08", "title": "Authorized Rack PDU Titanium Power Supply Replacement", "host_id": "usv-r04-h07", "matched_sop_id": "SOP-PDU-PHASE-03", "guardrail_verdict": "AUTHORIZED_DC_RMA_TOUCH", "grounded": true, "passed": true, "bedrock_latency_ms": 1009.64, "total_tokens": 588 }
+          ]
+        }
+      };
+
+      const VALID_TABS = ["sprt-canary", "repair-lifecycle", "topology-scheduler", "rma-copilot"];
+      let activeTab = "sprt-canary";
+      let activeTheme = "light";
+
+      const ARCH_NODE_DETAILS = {
+        "edge-browser": {
+          plane: "Plane 01 · Operator UI",
+          title: "Single-Page Operator Console",
+          module: "web/index.html (URL hash state)",
+          metric: "4 Live Control Views",
+          summary: "Renders real-time Wald SPRT wave trajectories, 32-host rack capacity maps, collective Wait-For culprit tables, contiguous sub-ring allocations, and Bedrock RMA briefs while persisting theme and active tab in window.location.hash."
+        },
+        "edge-cloudfront": {
+          plane: "Plane 01 · Global CDN",
+          title: "Amazon CloudFront Single-Domain Edge",
+          module: "infra/deploy_cloudfront.sh",
+          metric: "HTTPS + HTTP/3 Enabled",
+          summary: "Serves static assets from the private S3 origin via SigV4 Origin Access Control and routes /api/* calls directly to the AWS Lambda Function URL without cross-origin preflight overhead."
+        },
+        "edge-s3": {
+          plane: "Plane 01 · Static Origin",
+          title: "Private Amazon S3 Bucket with OAC",
+          module: "s3://nitroultrafleet-web-796330847946-us-west-2",
+          metric: "BlockPublicAccess = True",
+          summary: "Stores web/index.html with all four S3 public-access-block flags enabled; bucket policy restricts s3:GetObject exclusively to the CloudFront distribution ARN."
+        },
+        "edge-lambda": {
+          plane: "Plane 01 · Serverless Compute",
+          title: "AWS Lambda Python 3.12 Control-Plane Origin",
+          module: "nitro_fleet/server.py :: lambda_handler",
+          metric: "512 MB · 30s Timeout · $0 Idle",
+          summary: "Routes /api/health, /api/canary/sprt, /api/repair/transition, /api/scheduler/allocate, /api/copilot/rma, /api/benchmarks, and /api/reset with zero always-on EC2 or database servers."
+        },
+        "canary-sprt": {
+          plane: "Plane 02 · Rollout Gate",
+          title: "Wald Sequential Probability Ratio Test Engine",
+          module: "nitro_fleet/sprt_canary.py :: SPRTCanaryEngine",
+          metric: "59.55% Fewer Checks on Regressions",
+          summary: "Streams host qualification outcomes across Canary_1Pct -> Wave_10Pct -> Wave_50Pct -> Fleet_100Pct against exact boundaries A = ln((1-beta)/alpha) and B = ln(beta/(1-alpha)), halting an 8.5% EFA CRC regression in 16 checks."
+        },
+        "repair-cas": {
+          plane: "Plane 02 · Durable State Machine",
+          title: "Optimistic-Locked SQLite WAL Repair Lifecycle",
+          module: "nitro_fleet/repair_state_machine.py :: FleetRepairStateMachine",
+          metric: "20 / 20 CAS Races Clean · 0.219 ms p50",
+          summary: "Enforces deterministic transitions through HEALTHY, SUSPECT_CORDONED, SOFT_RESET_TRIAL, DC_RMA_DISPATCH, and BURN_IN_QUALIFICATION using atomic Compare-And-Swap version checks and SHA-256 hash-chained WAL audit rows."
+        },
+        "rack-guard": {
+          plane: "Plane 02 · Blast-Radius Control",
+          title: "Per-Rack & PDU N-k Capacity Floor Guard",
+          module: "nitro_fleet/repair_state_machine.py :: transition_host",
+          metric: "8 / 8 Over-Budget Cordons Blocked",
+          summary: "Rejects automated cordons whenever a rack already has k=2 non-healthy hosts (preserving at least 6/8 healthy capacity per Top-of-Rack switch) and escalates chronic flapping hosts straight to physical RMA."
+        },
+        "cusum-waitfor": {
+          plane: "Plane 03 · Telemetry Correlation",
+          title: "CUSUM Drift + Directed Wait-For Culprit Detector",
+          module: "nitro_fleet/topology_scheduler.py :: analyze_collective_trace",
+          metric: "100 / 100 Traces · 22.3 Lead Steps",
+          summary: "Combines warmup median/MAD normalization, tabular upper CUSUM change-point tracking, transitive waiter sink analysis, and Tarjan strongly connected components to compress 16 timeout alerts into 1 root culprit."
+        },
+        "buddy-scheduler": {
+          plane: "Plane 03 · Workload Placement",
+          title: "Contiguous Buddy Sub-Ring + EASY Backfill Scheduler",
+          module: "nitro_fleet/topology_scheduler.py :: schedule_workload_queue",
+          metric: "0 Cross-Spine Splits · -48.3% Wait",
+          summary: "Places 1, 2, 4, 8, and 16-node gangs onto aligned healthy rack sub-rings around cordoned nodes while backfilling short jobs ahead of shadow-reserved gang start times."
+        },
+        "bedrock-rma": {
+          plane: "Plane 04 · Grounded Copilot",
+          title: "SOP-Grounded Amazon Bedrock RMA & Canary Copilot",
+          module: "nitro_fleet/rma_copilot.py :: RMACopilot",
+          metric: "8 / 8 Passed · 1,193.4 ms p50",
+          summary: "Retrieves hardware SOP runbooks, verifies deterministic drain, N-k floor, and LOTO guardrails before calling us.amazon.nova-lite-v1:0 via Converse API, and post-checks every cited host and SOP identifier."
+        },
+        "aisle-router": {
+          plane: "Plane 04 · Floor Optimization",
+          title: "Serpentine Aisle Technician Work-Order Router",
+          module: "nitro_fleet/repair_state_machine.py :: plan_aisle_work_orders",
+          metric: "52.41% Walk Distance Saved",
+          summary: "Orders active DC_RMA_DISPATCH tickets along a serpentine S-shape floor path across aisles, rows, and rack elevations starting from the Hall-C parts cage (90.81 m vs. 190.81 m FIFO)."
+        }
+      };
+
+      const RMA_SCENARIOS = [
+        {
+          incident_type: "host_rma",
+          host_id: "usv-r02-h05",
+          host_state: "DC_RMA_DISPATCH",
+          rack_healthy: 7,
+          syndrome: "HBM_UNCORRECTABLE_ECC",
+          loto: true,
+          note: "Uncorrectable HBM ECC syndrome persisted across soft reset; spare blade staged in Hall-C parts cage."
+        },
+        {
+          incident_type: "host_rma",
+          host_id: "usv-r01-h03",
+          host_state: "SUSPECT_CORDONED",
+          rack_healthy: 7,
+          syndrome: "OPTIC_400G_RX_LOW",
+          loto: true,
+          note: "Technician requesting early transceiver pull while host is still in SUSPECT_CORDONED before drain."
+        },
+        {
+          incident_type: "host_rma",
+          host_id: "usv-r04-h01",
+          host_state: "DC_RMA_DISPATCH",
+          rack_healthy: 7,
+          syndrome: "PSU_RAIL_PHASE_FAULT",
+          loto: false,
+          note: "Feed-B titanium PSU fault reported; electrical LOTO padlock sign-off has not been completed yet."
+        },
+        {
+          incident_type: "canary_halt",
+          host_id: "usv-r01-h00",
+          host_state: "HEALTHY",
+          rack_healthy: 7,
+          syndrome: "SPRT_CANARY_REGRESSION_HALT",
+          loto: true,
+          canary_context: {
+            build_id: "efa-nic-fw-3.8.0-rc2",
+            halted_at_wave: "Canary_1Pct",
+            final_llr: 4.12,
+            upper_bound_a: 3.8918
+          },
+          note: "Wald SPRT crossed upper halt boundary A in Canary_1Pct after 16 host checks; prepare rollback instructions."
+        }
+      ];
+
+      const state = {
+        hosts: [],
+        rackBudgets: [],
+        auditChain: { valid: true, checked_rows: 4, verify_ms: 0.62 },
+        recentTransitions: [],
+        aisleWorkOrders: { work_order_count: 0, fifo_walk_meters: 0, aisle_serpentine_walk_meters: 0, walk_distance_saved_pct: 0, ordered_work_orders: [] },
+        selectedHostId: "usv-r01-h03"
+      };
+
+      function esc(v) {
+        return String(v == null ? "" : v)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      // Architecture Diagram Inspector, Zoom & SVG Export
+      function selectArchNode(nodeId) {
+        const info = ARCH_NODE_DETAILS[nodeId] || ARCH_NODE_DETAILS["edge-browser"];
+        document.querySelectorAll("#nitroArchSvg .arch-node").forEach(function (el) {
+          el.classList.toggle("selected", el.getAttribute("data-arch-node") === nodeId);
+        });
+        document.querySelectorAll("#archNodePills [data-arch-btn]").forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-arch-btn") === nodeId);
+        });
+        const box = document.getElementById("archInspectorDetail");
+        if (box) {
+          box.innerHTML =
+            '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.45rem;">' +
+              '<div>' +
+                '<span class="tag tag-accent" style="margin-bottom:0.35rem;">' + esc(info.plane) + '</span>' +
+                '<h3 style="font-size:1.06rem; font-weight:800;">' + esc(info.title) + '</h3>' +
+              '</div>' +
+              '<span class="tag tag-pass">' + esc(info.metric) + '</span>' +
+            '</div>' +
+            '<div class="mono" style="font-size:0.73rem; color:var(--accent-main); margin-bottom:0.45rem;">Module / Resource: <code>' + esc(info.module) + '</code></div>' +
+            '<p style="font-size:0.91rem; color:var(--ink-muted); line-height:1.65;">' + esc(info.summary) + '</p>';
+        }
+      }
+
+      document.querySelectorAll("#nitroArchSvg .arch-node").forEach(function (el) {
+        el.addEventListener("click", function () { selectArchNode(el.getAttribute("data-arch-node")); });
+        el.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selectArchNode(el.getAttribute("data-arch-node"));
+          }
+        });
+      });
+      document.querySelectorAll("#archNodePills [data-arch-btn]").forEach(function (btn) {
+        btn.addEventListener("click", function () { selectArchNode(btn.getAttribute("data-arch-btn")); });
+      });
+
+      const archSvg = document.getElementById("nitroArchSvg");
+      const archViewport = document.getElementById("archViewport");
+      const zoom100Btn = document.getElementById("zoom100Btn");
+      const zoom125Btn = document.getElementById("zoom125Btn");
+      const zoomResetBtn = document.getElementById("zoomResetBtn");
+      const archZoomLabel = document.getElementById("archZoomLabel");
+
+      function setArchZoom(mode) {
+        if (!archSvg) return;
+        const is125 = mode === "125";
+        archSvg.classList.toggle("zoom-125", is125);
+        archZoomLabel.textContent = is125 ? "Zoom: 125%" : "Zoom: 100%";
+        zoom100Btn.className = is125 ? "btn btn-secondary" : "btn btn-accent";
+        zoom125Btn.className = is125 ? "btn btn-accent" : "btn btn-secondary";
+        if (mode === "reset" && archViewport) {
+          archViewport.scrollTo({ left: 0, behavior: "smooth" });
+          selectArchNode("edge-browser");
+        }
+      }
+      zoom100Btn.addEventListener("click", function () { setArchZoom("100"); });
+      zoom125Btn.addEventListener("click", function () { setArchZoom("125"); });
+      zoomResetBtn.addEventListener("click", function () { setArchZoom("reset"); });
+
+      document.getElementById("downloadArchSvgBtn").addEventListener("click", function () {
+        const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + archSvg.outerHTML;
+        const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "nitroultrafleet-architecture.svg";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      });
+
+      // Scroll-spy for sticky section TOC
+      const spySections = ["problem", "architecture", "implementation", "tradeoffs", "studio", "benchmarks"];
+      window.addEventListener("scroll", function () {
+        let currentId = "problem";
+        const offset = window.scrollY + 165;
+        spySections.forEach(function (id) {
+          const sec = document.getElementById(id);
+          if (sec && sec.offsetTop <= offset) {
+            currentId = id;
+          }
+        });
+        document.querySelectorAll(".toc-link[data-spy]").forEach(function (lnk) {
+          lnk.classList.toggle("active", lnk.getAttribute("data-spy") === currentId);
+        });
+      }, { passive: true });
+
+      // URL hash state & dark mode toggle
+      function parseHashState() {
+        const raw = (window.location.hash || "").replace(/^#/, "");
+        if (!raw) return;
+        raw.split("&").forEach(function (part) {
+          if (VALID_TABS.includes(part)) activeTab = part;
+          else if (part === "theme=dark" || part === "dark") activeTheme = "dark";
+          else if (part === "theme=light") activeTheme = "light";
+        });
+      }
+
+      function syncHashState() {
+        const hash = activeTheme === "dark" ? activeTab + "&theme=dark" : activeTab;
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", "#" + hash);
+        } else {
+          window.location.hash = hash;
+        }
+      }
+
+      function applyTheme(theme) {
+        activeTheme = theme;
+        document.documentElement.setAttribute("data-theme", theme);
+        document.getElementById("themeIcon").textContent = theme === "dark" ? "☀️" : "🌙";
+        document.getElementById("themeLabel").textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
+        syncHashState();
+      }
+
+      document.getElementById("themeToggleBtn").addEventListener("click", function () {
+        applyTheme(activeTheme === "dark" ? "light" : "dark");
+      });
+
+      window.switchTab = function (tabId) {
+        if (!VALID_TABS.includes(tabId)) return;
+        activeTab = tabId;
+        document.querySelectorAll(".tab-btn").forEach(function (btn) {
+          const match = btn.getAttribute("data-tab") === tabId;
+          btn.classList.toggle("active", match);
+          btn.setAttribute("aria-selected", match ? "true" : "false");
+        });
+        document.querySelectorAll(".tab-panel").forEach(function (panel) {
+          panel.classList.toggle("active", panel.id === "panel-" + tabId);
+        });
+        syncHashState();
+      };
+
+      async function apiGet(path) {
+        const res = await fetch(path, { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      }
+
+      async function apiPost(path, body) {
+        const res = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(body || {})
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const err = new Error(data.error || ("HTTP " + res.status));
+          err.payload = data;
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      }
+
+      // Render Hero KPIs & Section 06 Benchmarks from MEASURED_BENCHMARKS
+      function renderMeasuredKpisAndBenchmarks() {
+        const k = MEASURED_BENCHMARKS.headline_kpis;
+
+        document.getElementById("heroKpiStrip").innerHTML =
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">-' + k.sprt_regressed_halt_reduction_pct + '% Checks</div>' +
+            '<div class="kpi-label">Wald SPRT Regression Halt Savings</div>' +
+            '<div class="kpi-sub"><em>' + k.sprt_trials_total + ' Monte Carlo trials (' + k.sprt_mean_samples + ' mean checks vs. ' + k.sprt_fixed_z_samples + ' fixed Z-test; ' + k.sprt_false_halt_rate_pct + '% false halt)</em></div>' +
+          '</div>' +
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">' + k.cas_races_won_cleanly + ' / ' + k.cas_races_total + ' Clean</div>' +
+            '<div class="kpi-label">SQLite WAL CAS &amp; Rack N-k Guard</div>' +
+            '<div class="kpi-sub"><em>' + k.n_minus_k_blocked + ' / ' + k.n_minus_k_probes + ' over-budget cordons blocked · ' + k.repair_transition_p50_ms + ' ms p50 · -' + k.aisle_walk_saved_pct + '% floor walk</em></div>' +
+          '</div>' +
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">' + k.straggler_traces_matched + ' / ' + k.straggler_traces_total + ' (' + k.straggler_accuracy_pct.toFixed(0) + '%)</div>' +
+            '<div class="kpi-label">Collective Culprit &amp; Sub-Ring Pack</div>' +
+            '<div class="kpi-sub"><em>' + k.scheduler_buddy_fragmentations + ' cross-spine splits (vs. ' + k.scheduler_naive_fragmentations + ' Naive) · -' + k.scheduler_wait_reduction_pct + '% queue wait</em></div>' +
+          '</div>' +
+          '<div class="card kpi-card">' +
+            '<div class="kpi-val">' + k.bedrock_cases_passed + ' / ' + k.bedrock_cases_total + ' Verified</div>' +
+            '<div class="kpi-label">SOP-Grounded Bedrock RMA Copilot</div>' +
+            '<div class="kpi-sub"><em>' + k.bedrock_hallucinations + ' hallucinated IDs · ' + k.bedrock_p50_ms + ' ms median Converse latency on Nova Lite</em></div>' +
+          '</div>';
+
+        document.getElementById("tabMetric1").textContent =
+          "-" + k.sprt_regressed_halt_reduction_pct + "% Checks · " + k.sprt_trials_total + " MC Trials";
+        document.getElementById("tabMetric2").textContent =
+          k.cas_races_won_cleanly + "/" + k.cas_races_total + " CAS Clean · " + k.repair_transition_p50_ms + " ms p50";
+        document.getElementById("tabMetric3").textContent =
+          k.straggler_traces_matched + "/" + k.straggler_traces_total + " Culprits · 0 Splits";
+        document.getElementById("tabMetric4").textContent =
+          k.bedrock_cases_passed + "/" + k.bedrock_cases_total + " Grounded · " + Math.round(k.bedrock_p50_ms) + " ms p50";
+
+        document.getElementById("benchSubHeader").textContent =
+          "Measured by benchmarks/run_benchmarks.py across 500 Wald SPRT trials, 20 6-worker SQLite WAL CAS races, 100 16-rank collective traces, 40 workload queues (720 jobs), and 8 live Amazon Bedrock (us.amazon.nova-lite-v1:0) RMA evaluations in " +
+          MEASURED_BENCHMARKS.environment.aws_region + ".";
+        document.getElementById("benchTimestampTag").textContent =
+          MEASURED_BENCHMARKS.benchmark_timestamp_utc;
+
+        const stages = [
+          { label: "SQLite CAS Transition", p50: k.repair_transition_p50_ms, color: "#059669" },
+          { label: "CUSUM + Wait-For", p50: k.straggler_p50_ms, color: "#1D4ED8" },
+          { label: "Sub-Ring + EASY Solve", p50: k.scheduler_solve_p50_ms, color: "#334155" },
+          { label: "SHA-256 WAL Verify", p50: k.sqlite_wal_verify_ms, color: "#D97706" },
+          { label: "Bedrock Nova Lite", p50: k.bedrock_p50_ms, color: "#6D28D9" }
+        ];
+        function logW(ms) {
+          const val = Math.max(0.1, ms);
+          const pct = ((Math.log10(val) - Math.log10(0.1)) / (Math.log10(2200) - Math.log10(0.1))) * 320;
+          return Math.max(10, Math.min(320, +pct.toFixed(1)));
+        }
+        let svgRows = "";
+        stages.forEach(function (st, idx) {
+          const y = 22 + idx * 34;
+          svgRows +=
+            '<text x="12" y="' + (y + 13) + '" font-family="monospace" font-size="10.2" font-weight="700" fill="#141413">' + esc(st.label) + '</text>' +
+            '<rect x="175" y="' + y + '" width="320" height="16" fill="#F2ECE1" stroke="#18181B" stroke-width="1.2"/>' +
+            '<rect x="175" y="' + y + '" width="' + logW(st.p50) + '" height="16" fill="' + st.color + '"/>' +
+            '<text x="503" y="' + (y + 12) + '" font-family="monospace" font-size="10" fill="#141413">p50: ' + st.p50 + ' ms</text>';
+        });
+        document.getElementById("benchLatencySvgBox").innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 615 198" style="width:100%; height:auto; display:block;">' +
+          '<rect width="615" height="198" fill="#FAF7F2"/>' + svgRows + '</svg>';
+
+        document.getElementById("benchAccuracyBars").innerHTML =
+          '<div class="bar-row"><div class="bar-meta"><span>CUSUM + Wait-For Root Culprit Isolation (' + k.straggler_traces_matched + ' / ' + k.straggler_traces_total + ')</span><span>' + k.straggler_accuracy_pct.toFixed(0) + '%</span></div><div class="bar-track"><div class="bar-fill bar-fill-pass" style="width:' + k.straggler_accuracy_pct + '%;"></div></div></div>' +
+          '<div class="bar-row"><div class="bar-meta"><span>N-k Rack Blast-Radius Guard Block Rate (' + k.n_minus_k_blocked + ' / ' + k.n_minus_k_probes + ')</span><span>100%</span></div><div class="bar-track"><div class="bar-fill bar-fill-accent" style="width:100%;"></div></div></div>' +
+          '<div class="bar-row"><div class="bar-meta"><span>Bedrock SOP Guardrail &amp; Grounding Pass Rate (' + k.bedrock_cases_passed + ' / ' + k.bedrock_cases_total + ')</span><span>100%</span></div><div class="bar-track"><div class="bar-fill bar-fill-pass" style="width:100%;"></div></div></div>';
+
+        document.getElementById("benchSprtPresetsBody").innerHTML = (MEASURED_BENCHMARKS.sprt_rollout_presets || []).map(function (p) {
+          const halted = p.overall_verdict === "HALTED_AND_ROLLED_BACK";
+          return (
+            "<tr>" +
+              "<td class='mono'><strong>" + esc(p.build_id) + "</strong></td>" +
+              "<td><span class='tag " + (halted ? "tag-fail" : "tag-pass") + "'>" + esc(halted ? "HALTED" : "PROMOTED") + "</span></td>" +
+              "<td class='mono'>" + esc(p.halted_at_wave) + "</td>" +
+              "<td class='mono'>" + p.total_samples + "</td>" +
+              "<td class='mono' style='color:var(--pass); font-weight:700;'>-" + p.sample_reduction_vs_full_pct + "%</td>" +
+            "</tr>"
+          );
+        }).join("");
+
+        const smc = MEASURED_BENCHMARKS.scheduler_monte_carlo;
+        document.getElementById("benchSchedulerMcBody").innerHTML =
+          "<tr>" +
+            "<td><strong>Buddy Sub-Ring + EASY Backfill</strong></td>" +
+            "<td class='mono'><strong>" + smc.buddy_easy_mean_utilization_pct + "%</strong></td>" +
+            "<td class='mono'><strong>" + smc.buddy_easy_mean_wait_steps + " steps</strong></td>" +
+            "<td><span class='tag tag-pass'>" + smc.buddy_cross_spine_fragmentations + " splits</span></td>" +
+          "</tr>" +
+          "<tr>" +
+            "<td>Naive LeastAllocated + Strict FIFO</td>" +
+            "<td class='mono'>" + smc.naive_fifo_mean_utilization_pct + "%</td>" +
+            "<td class='mono'>" + smc.naive_fifo_mean_wait_steps + " steps</td>" +
+            "<td><span class='tag tag-fail'>" + smc.naive_cross_spine_fragmentations + " splits</span></td>" +
+          "</tr>";
+
+        const bc = MEASURED_BENCHMARKS.bedrock_rma_copilot_benchmark;
+        document.getElementById("benchBedrockSummaryTag").textContent =
+          bc.cases_passed + " / " + bc.cases_total + " Passed · " + bc.hallucinated_entities_total + " Hallucinations";
+        document.getElementById("benchBedrockCasesBody").innerHTML = (bc.case_results || []).map(function (c) {
+          const isHold = c.guardrail_verdict.indexOf("HOLD") === 0;
+          return (
+            "<tr>" +
+              "<td class='mono'><strong>" + esc(c.case_id) + "</strong></td>" +
+              "<td>" + esc(c.title) + "</td>" +
+              "<td class='mono'>" + esc(c.host_id) + "</td>" +
+              "<td class='mono'>" + esc(c.matched_sop_id) + "</td>" +
+              "<td><span class='tag " + (isHold ? "tag-warn" : "tag-pass") + "'>" + esc(c.guardrail_verdict) + "</span></td>" +
+              "<td class='mono' style='color:var(--pass); font-weight:700;'>" + (c.grounded ? "YES" : "NO") + "</td>" +
+              "<td class='mono'>" + c.bedrock_latency_ms + " ms</td>" +
+              "<td class='mono'>" + c.total_tokens + "</td>" +
+            "</tr>"
+          );
+        }).join("");
+      }
+
+      // =====================================================================
+      // TAB 1: SPRT CANARY ENGINE UI
+      // =====================================================================
+      function renderSprtResult(res) {
+        const halted = res.overall_verdict === "HALTED_AND_ROLLED_BACK";
+        const banner = document.getElementById("sprtVerdictBanner");
+        banner.className = "verdict-banner " + (halted ? "verdict-deny" : "verdict-allow");
+        banner.innerHTML = halted
+          ? "<div><strong>🛑 ROLLOUT HALTED IN " + esc(res.halted_at_wave) + " (" + esc(res.build_id) + ")</strong><br/><span style='font-size:0.82rem;'>Stopped after <strong>" + res.summary_metrics.total_samples_evaluated + "</strong> host checks (vs. " + res.summary_metrics.fixed_horizon_four_waves + " fixed 4-wave checks, <strong>-" + res.summary_metrics.sample_reduction_vs_full_rollout_pct + "%</strong>), protecting <strong>" + res.summary_metrics.protected_fleet_pct + "%</strong> of fleet capacity.</span></div><span class='tag tag-fail'>HALT &amp; ROLLBACK</span>"
+          : "<div><strong>✅ PROMOTED ACROSS ALL 4 WAVES (" + esc(res.build_id) + ")</strong><br/><span style='font-size:0.82rem;'>Completed 4-wave rollout in <strong>" + res.summary_metrics.total_samples_evaluated + "</strong> sequential checks (vs. " + res.summary_metrics.fixed_horizon_four_waves + " fixed checks, <strong>-" + res.summary_metrics.sample_reduction_vs_full_rollout_pct + "%</strong>).</span></div><span class='tag tag-pass'>FLEET 100%</span>";
+
+        const allWaves = ["Canary_1Pct", "Wave_10Pct", "Wave_50Pct", "Fleet_100Pct"];
+        const byWave = {};
+        (res.wave_results || []).forEach(function (w) { byWave[w.wave_name] = w; });
+
+        document.getElementById("sprtWaveStrip").innerHTML = allWaves.map(function (wn) {
+          const w = byWave[wn];
+          if (!w) {
+            return (
+              '<div class="wave-card" style="opacity:0.65;">' +
+                '<div class="mono" style="font-size:0.68rem; font-weight:700;">' + esc(wn) + '</div>' +
+                '<span class="tag tag-soft" style="margin-top:0.25rem;">PROTECTED (SKIPPED)</span>' +
+              '</div>'
+            );
+          }
+          const isHalt = w.decision === "HALT_ROLLBACK";
+          return (
+            '<div class="wave-card">' +
+              '<div class="mono" style="font-size:0.68rem; font-weight:700;">' + esc(wn) + '</div>' +
+              '<span class="tag ' + (isHalt ? "tag-fail" : "tag-pass") + '" style="margin:0.24rem 0;">' + esc(w.decision) + '</span>' +
+              '<div class="mono" style="font-size:0.68rem; color:var(--ink-muted);">n=' + w.samples_evaluated + ' · fail=' + w.failures_observed + ' · LLR=' + w.final_llr + '</div>' +
+            '</div>'
+          );
+        }).join("");
+
+        // Draw SVG Trajectory for the decisive (last evaluated) wave
+        const activeWave = res.wave_results[res.wave_results.length - 1];
+        const traj = activeWave ? activeWave.trajectory : [{ step: 0, llr: 0 }];
+        const upperA = res.parameters.upper_bound_a;
+        const lowerB = res.parameters.lower_bound_b;
+        document.getElementById("sprtChartMeta").textContent =
+          activeWave.wave_name + " · A = +" + upperA + " · B = " + lowerB;
+        document.getElementById("sprtMsBadge").textContent = res.summary_metrics.eval_ms + " ms";
+
+        const W = 560, H = 185, padL = 48, padR = 18, padT = 18, padB = 26;
+        const minY = Math.min(lowerB - 1.0, -4.8);
+        const maxY = Math.max(upperA + 1.0, 4.8);
+        const maxX = Math.max(20, traj.length - 1);
+        function sx(step) { return padL + (step / maxX) * (W - padL - padR); }
+        function sy(val) { return padT + ((maxY - val) / (maxY - minY)) * (H - padT - padB); }
+
+        const pts = traj.map(function (p) { return sx(p.step).toFixed(1) + "," + sy(p.llr).toFixed(1); }).join(" ");
+        const yA = sy(upperA).toFixed(1);
+        const yB = sy(lowerB).toFixed(1);
+        const y0 = sy(0).toFixed(1);
+
+        document.getElementById("sprtSvgContainer").innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" style="width:100%; height:auto; display:block;">' +
+            '<rect width="' + W + '" height="' + H + '" fill="#FAF7F2"/>' +
+            '<line x1="' + padL + '" y1="' + yA + '" x2="' + (W - padR) + '" y2="' + yA + '" stroke="#DC2626" stroke-width="1.8" stroke-dasharray="6 4"/>' +
+            '<text x="' + (padL + 4) + '" y="' + (Number(yA) - 4) + '" font-family="monospace" font-size="9.5" font-weight="700" fill="#DC2626">Upper Halt Bound A (+' + upperA + ')</text>' +
+            '<line x1="' + padL + '" y1="' + y0 + '" x2="' + (W - padR) + '" y2="' + y0 + '" stroke="#71717A" stroke-width="1" stroke-dasharray="3 3"/>' +
+            '<line x1="' + padL + '" y1="' + yB + '" x2="' + (W - padR) + '" y2="' + yB + '" stroke="#059669" stroke-width="1.8" stroke-dasharray="6 4"/>' +
+            '<text x="' + (padL + 4) + '" y="' + (Number(yB) + 12) + '" font-family="monospace" font-size="9.5" font-weight="700" fill="#059669">Lower Promote Bound B (' + lowerB + ')</text>' +
+            '<polyline fill="none" stroke="#334155" stroke-width="2.4" points="' + pts + '"/>' +
+            '<text x="' + (W / 2) + '" y="' + (H - 6) + '" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#52514E">Sequential Host Checks in ' + esc(activeWave.wave_name) + ' (0 .. ' + (traj.length - 1) + ')</text>' +
+          '</svg>';
+
+        const compact = Object.assign({}, res, {
+          wave_results: res.wave_results.map(function (w) {
+            return Object.assign({}, w, { trajectory_points: w.trajectory.length, trajectory: undefined });
+          })
+        });
+        document.getElementById("sprtJsonBox").textContent = JSON.stringify(compact, null, 2);
+      }
+
+      window.runSprtPreset = async function (scenarioId) {
+        document.querySelectorAll("[data-sprt-preset]").forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-sprt-preset") === scenarioId);
+        });
+        try {
+          const out = await apiPost("/api/canary/sprt", { scenario_id: scenarioId });
+          document.getElementById("sprtBuildId").value = out.build_id;
+          renderSprtResult(out);
+        } catch (err) {
+          document.getElementById("sprtJsonBox").textContent = "Error: " + err.message;
+        }
+      };
+
+      window.runCustomSprt = async function () {
+        const btn = document.getElementById("btnRunCustomSprt");
+        btn.disabled = true;
+        try {
+          const out = await apiPost("/api/canary/sprt", {
+            build_id: document.getElementById("sprtBuildId").value.trim() || "custom-fw-build",
+            observed_failure_rate: parseFloat(document.getElementById("sprtObsRate").value),
+            p0: parseFloat(document.getElementById("sprtP0").value),
+            p1: parseFloat(document.getElementById("sprtP1").value),
+            alpha: parseFloat(document.getElementById("sprtAlpha").value),
+            beta: parseFloat(document.getElementById("sprtBeta").value),
+            seed: 4299
+          });
+          renderSprtResult(out);
+        } catch (err) {
+          document.getElementById("sprtJsonBox").textContent = "Error: " + err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // =====================================================================
+      // TAB 2: HOST REPAIR LIFECYCLE & RACK GUARD UI
+      // =====================================================================
+      window.selectHostChip = function (hostId) {
+        state.selectedHostId = hostId;
+        renderRepairTab();
+      };
+
+      function applyStateSnapshot(snap) {
+        if (!snap) return;
+        if (Array.isArray(snap.hosts)) state.hosts = snap.hosts;
+        if (Array.isArray(snap.rack_budgets)) state.rackBudgets = snap.rack_budgets;
+        if (snap.audit_chain) state.auditChain = snap.audit_chain;
+        if (Array.isArray(snap.recent_transitions)) state.recentTransitions = snap.recent_transitions;
+        if (snap.aisle_work_orders) state.aisleWorkOrders = snap.aisle_work_orders;
+        if (snap.benchmarks && snap.benchmarks.headline_kpis) {
+          MEASURED_BENCHMARKS = snap.benchmarks;
+          renderMeasuredKpisAndBenchmarks();
+        }
+        renderRepairTab();
+      }
+
+      function renderRepairTab() {
+        const chainTag = document.getElementById("walChainStatusTag");
+        chainTag.className = "tag " + (state.auditChain.valid ? "tag-pass" : "tag-fail");
+        chainTag.textContent = state.auditChain.valid
+          ? "SQLite WAL Chain: VALID (" + state.auditChain.checked_rows + " rows)"
+          : "SQLite WAL Chain: BROKEN";
+
+        const hostsByRack = {};
+        state.hosts.forEach(function (h) {
+          if (!hostsByRack[h.rack_id]) hostsByRack[h.rack_id] = [];
+          hostsByRack[h.rack_id].push(h);
+        });
+
+        document.getElementById("rackGridContainer").innerHTML = state.rackBudgets.map(function (rb) {
+          const rHosts = hostsByRack[rb.rack_id] || [];
+          const atLimit = rb.remaining_cordon_budget === 0;
+          return (
+            '<div class="rack-box">' +
+              '<div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem;">' +
+                '<span class="mono" style="font-size:0.73rem; font-weight:700;">' + esc(rb.rack_id) + ' (' + esc(rb.aisle) + ')</span>' +
+                '<span class="tag ' + (atLimit ? "tag-warn" : "tag-pass") + '">' + rb.healthy_hosts + '/8 Healthy (k=' + rb.unavailable_hosts + '/2)</span>' +
+              '</div>' +
+              '<div class="host-chips">' +
+                rHosts.map(function (h) {
+                  const shortSlot = h.host_id.split("-")[2].toUpperCase();
+                  const sel = h.host_id === state.selectedHostId ? " selected" : "";
+                  return (
+                    '<button type="button" class="host-chip host-state-' + esc(h.state) + sel + '" onclick="selectHostChip(\'' + esc(h.host_id) + '\')" title="' + esc(h.host_id + " · " + h.state) + '">' +
+                      esc(shortSlot) + '<br/><span style="font-size:0.56rem;">v' + h.version + '</span>' +
+                    '</button>'
+                  );
+                }).join("") +
+              '</div>' +
+            '</div>'
+          );
+        }).join("");
+
+        const cur = state.hosts.find(function (x) { return x.host_id === state.selectedHostId; }) || state.hosts[0];
+        if (cur) {
+          document.getElementById("selectedHostHeading").textContent = "Selected Host: " + cur.host_id + " (version " + cur.version + ")";
+          const stBadge = document.getElementById("selectedHostStateBadge");
+          stBadge.textContent = cur.state;
+          stBadge.className = "tag " + (cur.state === "HEALTHY" ? "tag-pass" : (cur.state === "DC_RMA_DISPATCH" ? "tag-fail" : "tag-warn"));
+          document.getElementById("selectedHostMeta").innerHTML =
+            "<div><strong>Location:</strong> " + esc(cur.aisle) + " · Row 0" + cur.row_num + " · U" + (cur.rack_unit < 10 ? "0" + cur.rack_unit : cur.rack_unit) + " · <strong>ToR:</strong> " + esc(cur.tor_switch) + " · <strong>PDU:</strong> " + esc(cur.pdu_domain) + "</div>" +
+            "<div><strong>Syndrome:</strong> <code>" + esc(cur.syndrome_code) + "</code> · <strong>72h Flaps:</strong> " + cur.flap_count_72h + " · <strong>LOTO Verified:</strong> " + (cur.loto_verified ? "YES" : "NO") + "</div>";
+        }
+
+        const wo = state.aisleWorkOrders;
+        document.getElementById("aisleSavingsBadge").textContent =
+          wo.work_order_count + " Stops · " + wo.aisle_serpentine_walk_meters + "m Walk (FIFO " + wo.fifo_walk_meters + "m)";
+        document.getElementById("aisleWorkOrdersBody").innerHTML = (wo.ordered_work_orders || []).length
+          ? wo.ordered_work_orders.map(function (s) {
+              return (
+                "<tr>" +
+                  "<td class='mono'>#" + s.stop_index + "</td>" +
+                  "<td class='mono'><strong>" + esc(s.host_id) + "</strong></td>" +
+                  "<td class='mono' style='font-size:0.71rem;'>" + esc(s.location) + "</td>" +
+                  "<td><span class='tag tag-fail'>" + esc(s.syndrome_code) + "</span></td>" +
+                "</tr>"
+              );
+            }).join("")
+          : "<tr><td colspan='4' class='mono' style='color:var(--ink-muted);'>0 active DC_RMA_DISPATCH stops</td></tr>";
+
+        document.getElementById("repairLogCountBadge").textContent =
+          state.recentTransitions.length + " Recent Transitions";
+        document.getElementById("repairTransitionsBody").innerHTML = state.recentTransitions.map(function (t) {
+          return (
+            "<tr>" +
+              "<td class='mono'><strong>" + esc(t.transition_id) + "</strong></td>" +
+              "<td class='mono'>" + esc(t.host_id) + "</td>" +
+              "<td class='mono' style='font-size:0.69rem;'>" + esc(t.from_state) + " -&gt; " + esc(t.to_state) + "</td>" +
+              "<td class='mono'>v" + t.new_version + "</td>" +
+              "<td class='mono' style='font-size:0.67rem;'>" + esc(String(t.row_hash || "").slice(0, 12)) + "…</td>" +
+            "</tr>"
+          );
+        }).join("");
+      }
+
+      window.transitionSelectedHost = async function (targetState, syndromeOverride) {
+        const cur = state.hosts.find(function (x) { return x.host_id === state.selectedHostId; });
+        if (!cur) return;
+        const banner = document.getElementById("repairOutcomeBanner");
+        try {
+          const res = await apiPost("/api/repair/transition", {
+            host_id: cur.host_id,
+            target_state: targetState,
+            expected_version: cur.version,
+            syndrome_code: syndromeOverride || cur.syndrome_code,
+            loto_verified: true,
+            burn_in_passed: true
+          });
+          applyStateSnapshot(res.state_snapshot);
+          const tr = res.transition;
+          banner.className = "verdict-banner verdict-allow";
+          banner.innerHTML =
+            "<div><strong>✅ TRANSITION COMMITTED (" + esc(tr.transition_id) + ")</strong><br/><span style='font-size:0.82rem;'>" + esc(tr.host_id) + ": <code>" + esc(tr.from_state) + " -&gt; " + esc(tr.to_state) + "</code> (v" + tr.previous_version + " -&gt; v" + tr.new_version + ") · " + esc(tr.guardrail_note) + "</span></div>" +
+            "<span class='tag tag-pass'>" + tr.duration_ms + " ms</span>";
+          document.getElementById("repairMsBadge").textContent = tr.duration_ms + " ms";
+          document.getElementById("repairConsoleBox").textContent = JSON.stringify(tr, null, 2);
+        } catch (err) {
+          banner.className = "verdict-banner verdict-deny";
+          banner.innerHTML =
+            "<div><strong>🛑 GUARDRAIL REJECTED TRANSITION</strong><br/><span style='font-size:0.82rem;'>" + esc(err.message) + "</span></div>" +
+            "<span class='tag tag-fail'>" + esc((err.payload && err.payload.error_code) || "BLOCKED") + "</span>";
+          document.getElementById("repairConsoleBox").textContent = JSON.stringify(err.payload || { error: err.message }, null, 2);
+        }
+      };
+
+      window.runLiveCasRace = async function () {
+        const healthyCandidate = state.hosts.find(function (h) {
+          const rb = state.rackBudgets.find(function (r) { return r.rack_id === h.rack_id; });
+          return h.state === "HEALTHY" && rb && rb.remaining_cordon_budget > 0;
+        });
+        const targetHost = healthyCandidate ? healthyCandidate.host_id : state.selectedHostId;
+        state.selectedHostId = targetHost;
+        try {
+          const out = await apiPost("/api/repair/transition", {
+            action: "simulate_cas_race",
+            host_id: targetHost,
+            target_state: "SUSPECT_CORDONED",
+            syndrome_code: "NEURONLINK_CRC_FLAP"
+          });
+          applyStateSnapshot(out.state_snapshot);
+          const banner = document.getElementById("repairOutcomeBanner");
+          banner.className = "verdict-banner verdict-allow";
+          banner.innerHTML =
+            "<div><strong>⚡ 4-THREAD CAS RACE ON " + esc(out.host_id) + " (v" + out.contested_version + ")</strong><br/><span style='font-size:0.82rem;'>Exactly <strong>" + out.winners_count + "</strong> thread committed v" + (out.contested_version + 1) + "; <strong>" + out.conflicts_rejected + "</strong> stale-version threads rejected cleanly without split-brain overwrite.</span></div>" +
+            "<span class='tag tag-pass'>CAS VERIFIED</span>";
+          document.getElementById("repairConsoleBox").textContent = JSON.stringify(out.thread_results, null, 2);
+        } catch (err) {
+          document.getElementById("repairConsoleBox").textContent = "Error: " + err.message;
+        }
+      };
+
+      window.testOverBudgetCordon = async function () {
+        // Ensure rack-01 has 2 cordoned hosts, then attempt a 3rd in rack-01
+        const r1Hosts = state.hosts.filter(function (h) { return h.rack_id === "rack-01"; });
+        const healthyR1 = r1Hosts.filter(function (h) { return h.state === "HEALTHY"; });
+        const unavailCount = 8 - healthyR1.length;
+        try {
+          let idx = 0;
+          for (let needed = unavailCount; needed < 2 && idx < healthyR1.length; needed++, idx++) {
+            const stepOut = await apiPost("/api/repair/transition", {
+              host_id: healthyR1[idx].host_id,
+              target_state: "SUSPECT_CORDONED",
+              syndrome_code: "LINK_CRC_SPIKE"
+            });
+            applyStateSnapshot(stepOut.state_snapshot);
+          }
+          const thirdTarget = healthyR1[idx] || healthyR1[0];
+          state.selectedHostId = thirdTarget.host_id;
+          await window.transitionSelectedHost("SUSPECT_CORDONED", "LINK_CRC_SPIKE");
+        } catch (_) {}
+      };
+
+      window.resetFleetState = async function () {
+        try {
+          const out = await apiPost("/api/reset", {});
+          applyStateSnapshot(out.state_snapshot);
+          document.getElementById("repairOutcomeBanner").className = "verdict-banner verdict-allow";
+          document.getElementById("repairOutcomeBanner").innerHTML =
+            "<div><strong>↺ FLEET POD RESET TO SEEDED BASELINE</strong><br/><span style='font-size:0.82rem;'>Restored 32 UltraServer hosts across 4 racks with fresh SQLite WAL state.</span></div><span class='tag tag-pass'>READY</span>";
+        } catch (err) {
+          document.getElementById("repairConsoleBox").textContent = "Error: " + err.message;
+        }
+      };
+
+      // =====================================================================
+      // TAB 3: COLLECTIVE STRAGGLER DETECTOR & SUB-RING SCHEDULER UI
+      // =====================================================================
+      window.runLiveScheduler = async function () {
+        const btn = document.getElementById("btnRunScheduler");
+        btn.disabled = true;
+        try {
+          const out = await apiPost("/api/scheduler/allocate", {
+            trace_preset: document.getElementById("tracePresetSelect").value,
+            workload_preset: document.getElementById("workloadPresetSelect").value
+          });
+          const sd = out.straggler_detector;
+          const sc = out.scheduler;
+
+          const banner = document.getElementById("stragglerBanner");
+          const isCycle = sd.diagnosis_type === "COLLECTIVE_DEADLOCK_CYCLE";
+          banner.className = "verdict-banner " + (isCycle ? "verdict-deny" : "verdict-warn");
+          banner.innerHTML =
+            "<div><strong>🎯 " + esc(sd.diagnosis_type) + ": RANK(S) [" + esc(sd.isolated_culprits.join(", ")) + "]</strong><br/><span style='font-size:0.82rem;'>Alert compression <strong>" + esc(sd.alert_compression) + "</strong> (" + sd.noisy_timeout_ranks_suppressed + " victim timeout alerts suppressed) · Caught <strong>" + sd.lead_steps_before_timeout + " steps</strong> before barrier timeout.</span></div>" +
+            "<span class='tag " + (isCycle ? "tag-fail" : "tag-warn") + "'>CULPRIT ISOLATED</span>";
+
+          document.getElementById("stragglerTimingBadge").textContent = sd.analysis_ms + " ms";
+          const sortedRanks = sd.rank_diagnostics.slice().sort(function (a, b) {
+            if (b.is_root_culprit !== a.is_root_culprit) return b.is_root_culprit ? 1 : -1;
+            return b.peak_cusum - a.peak_cusum;
+          }).slice(0, 7);
+
+          document.getElementById("rankDiagnosticsBody").innerHTML = sortedRanks.map(function (r) {
+            return (
+              "<tr>" +
+                "<td class='mono'><strong>r" + (r.rank < 10 ? "0" + r.rank : r.rank) + "</strong></td>" +
+                "<td class='mono'>" + r.tail_step_ms + " ms</td>" +
+                "<td class='mono'>" + r.peak_cusum + "</td>" +
+                "<td class='mono'>" + r.lead_steps_before_timeout + "</td>" +
+                "<td class='mono'>" + r.transitive_waiters + "</td>" +
+                "<td><span class='tag " + (r.is_root_culprit ? "tag-fail" : "tag-pass") + "'>" + (r.is_root_culprit ? "ROOT CULPRIT" : "VICTIM PEER") + "</span></td>" +
+              "</tr>"
+            );
+          }).join("");
+
+          const cmp = sc.comparison;
+          document.getElementById("schedSolveBadge").textContent =
+            sc.solve_ms + " ms · " + sc.cordoned_hosts.length + " cordoned";
+          document.getElementById("schedComparisonBody").innerHTML =
+            "<tr><td><strong>Cluster Utilization</strong></td><td class='mono'><strong>" + cmp.buddy_easy_utilization_pct + "%</strong></td><td class='mono'>" + cmp.naive_fifo_utilization_pct + "%</td><td class='mono' style='color:var(--pass); font-weight:700;'>+" + cmp.utilization_gain_pct_pts + " pts</td></tr>" +
+            "<tr><td><strong>Mean Queue Wait</strong></td><td class='mono'><strong>" + cmp.buddy_easy_mean_wait_steps + " steps</strong></td><td class='mono'>" + cmp.naive_fifo_mean_wait_steps + " steps</td><td class='mono' style='color:var(--pass); font-weight:700;'>-" + cmp.mean_wait_reduction_pct + "%</td></tr>" +
+            "<tr><td><strong>Makespan</strong></td><td class='mono'><strong>" + cmp.buddy_easy_makespan_steps + " steps</strong></td><td class='mono'>" + cmp.naive_fifo_makespan_steps + " steps</td><td class='mono'>" + (cmp.buddy_easy_makespan_steps - cmp.naive_fifo_makespan_steps) + " steps</td></tr>" +
+            "<tr><td><strong>Cross-Spine Ring Splits</strong></td><td><span class='tag tag-pass'>" + cmp.buddy_cross_spine_fragmentations + "</span></td><td><span class='tag tag-fail'>" + cmp.naive_cross_spine_fragmentations + "</span></td><td class='mono' style='color:var(--pass); font-weight:700;'>100% Eliminated</td></tr>";
+
+          const rmap = sc.buddy_easy.initial_rack_map || {};
+          document.getElementById("subRingMapBox").innerHTML = Object.keys(rmap).sort().map(function (rk) {
+            const slots = rmap[rk];
+            return (
+              '<div style="display:flex; align-items:center; gap:0.45rem; margin-bottom:0.42rem; flex-wrap:wrap;">' +
+                '<span class="mono" style="font-size:0.7rem; font-weight:700; width:68px;">' + esc(rk) + '</span>' +
+                slots.map(function (val, idx) {
+                  const isCord = val === "CORDONED";
+                  const isIdle = val === "IDLE";
+                  const bg = isCord ? "var(--fail-soft)" : (isIdle ? "var(--bg-subtle)" : "var(--pass-soft)");
+                  const fg = isCord ? "var(--fail)" : (isIdle ? "var(--ink-muted)" : "var(--pass)");
+                  const label = isCord ? "CORDON" : (isIdle ? "IDLE" : val.replace("job-", "").replace("gang-", "").slice(0, 8));
+                  return '<span class="mono" style="font-size:0.62rem; font-weight:700; padding:0.2rem 0.36rem; border:1.5px solid var(--border); background:' + bg + '; color:' + fg + ';">s' + idx + ':' + esc(label) + '</span>';
+                }).join("") +
+              '</div>'
+            );
+          }).join("");
+
+          document.getElementById("backfillCountBadge").textContent =
+            cmp.easy_backfilled_jobs + " EASY Backfilled Jobs";
+          document.getElementById("schedTimelineBody").innerHTML = sc.buddy_easy.schedule.map(function (j) {
+            return (
+              "<tr>" +
+                "<td class='mono'><strong>" + esc(j.job_id) + "</strong></td>" +
+                "<td class='mono'>" + j.nodes + "</td>" +
+                "<td class='mono'>" + j.start_step + ".." + j.end_step + "</td>" +
+                "<td class='mono'>" + j.wait_steps + "</td>" +
+                "<td class='mono' style='font-size:0.69rem;'>" + esc(j.racks.join(",")) + "</td>" +
+                "<td><span class='tag " + (j.backfilled ? "tag-accent" : "tag-pass") + "'>" + (j.backfilled ? "EASY BACKFILL" : "CONTIGUOUS RING") + "</span></td>" +
+              "</tr>"
+            );
+          }).join("");
+        } catch (err) {
+          document.getElementById("stragglerBanner").innerHTML = "<div>Error: " + esc(err.message) + "</div>";
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // =====================================================================
+      // TAB 4: SOP-GROUNDED BEDROCK RMA COPILOT UI
+      // =====================================================================
+      let activeRmaScenarioObj = RMA_SCENARIOS[0];
+
+      window.loadRmaScenario = function (idx) {
+        document.querySelectorAll("[data-rma-idx]").forEach(function (btn) {
+          btn.classList.toggle("active", parseInt(btn.getAttribute("data-rma-idx"), 10) === idx);
+        });
+        const sc = RMA_SCENARIOS[idx] || RMA_SCENARIOS[0];
+        activeRmaScenarioObj = sc;
+        document.getElementById("rmaIncidentType").value = sc.incident_type;
+        document.getElementById("rmaHostId").value = sc.host_id;
+        document.getElementById("rmaHostState").value = sc.host_state;
+        document.getElementById("rmaRackHealthy").value = sc.rack_healthy;
+        document.getElementById("rmaSyndrome").value = sc.syndrome;
+        document.getElementById("rmaLotoCheck").checked = sc.loto;
+        document.getElementById("rmaNote").value = sc.note;
+        invokeLiveRmaCopilot();
+      };
+
+      function renderRmaOutput(out) {
+        const g = out.guardrails;
+        const banner = document.getElementById("rmaGuardrailBanner");
+        banner.className = "verdict-banner " + (g.authorized_for_action ? "verdict-allow" : "verdict-deny");
+        banner.innerHTML = g.authorized_for_action
+          ? "<div><strong>✅ " + esc(g.guardrail_verdict) + " (" + esc(out.matched_sop.sop_id) + ")</strong><br/><span style='font-size:0.82rem;'>All pre-flight capacity, workload drain, and LOTO checks passed for <strong>" + esc(out.host_id) + "</strong> (" + esc(out.location) + ").</span></div><span class='tag tag-pass'>SAFE TO PROCEED</span>"
+          : "<div><strong>🛑 " + esc(g.guardrail_verdict) + "</strong><br/><span style='font-size:0.82rem;'>" + esc(g.blocking_reasons.join(" · ")) + "</span></div><span class='tag tag-fail'>PHYSICAL TOUCH BLOCKED</span>";
+
+        document.getElementById("rmaGuardrailTags").innerHTML =
+          '<span class="tag ' + (g.host_drain_verified ? "tag-pass" : "tag-fail") + '">Drain Verified: ' + (g.host_drain_verified ? "YES" : "NO") + '</span>' +
+          '<span class="tag ' + (g.rack_capacity_floor_ok ? "tag-pass" : "tag-fail") + '">Rack N-k: ' + esc(g.min_healthy_floor_n_minus_k) + '</span>' +
+          '<span class="tag ' + (g.loto_verified ? "tag-pass" : "tag-fail") + '">LOTO Sign-Off: ' + (g.loto_verified ? "YES" : "NO") + '</span>' +
+          '<span class="tag ' + (out.grounding_check.grounded ? "tag-pass" : "tag-fail") + '">Entity Grounding: ' + (out.grounding_check.grounded ? "100% VERIFIED" : "UNVERIFIED") + '</span>';
+
+        const sop = out.matched_sop;
+        document.getElementById("rmaMatchedSopBox").innerHTML =
+          "<div><strong>Matched Runbook:</strong> <code>" + esc(sop.sop_id) + "</code> · " + esc(sop.title) + " (FRU: <code>" + esc(sop.fru_part) + "</code>)</div>" +
+          "<div style='margin-top:0.25rem;'><strong>Mandatory LOTO:</strong> " + esc(sop.required_loto) + "</div>" +
+          "<div style='margin-top:0.25rem;'><strong>Post-Swap Burn-In Gate:</strong> " + esc(sop.burn_in_gate) + "</div>";
+
+        document.getElementById("rmaLatencyBadge").textContent =
+          out.bedrock_model + " · " + out.bedrock_latency_ms + " ms · " + out.total_tokens + " tok";
+        document.getElementById("rmaBriefOutput").textContent = out.copilot_brief;
+      }
+
+      window.invokeLiveRmaCopilot = async function () {
+        const btn = document.getElementById("btnInvokeCopilot");
+        const hint = document.getElementById("rmaStatusHint");
+        btn.disabled = true;
+        hint.textContent = "Calling Amazon Bedrock Nova Lite...";
+        try {
+          const payload = {
+            incident_type: document.getElementById("rmaIncidentType").value,
+            host_id: document.getElementById("rmaHostId").value.trim(),
+            host_state: document.getElementById("rmaHostState").value,
+            rack_healthy_hosts: parseInt(document.getElementById("rmaRackHealthy").value, 10),
+            syndrome_code: document.getElementById("rmaSyndrome").value.trim(),
+            loto_verified: document.getElementById("rmaLotoCheck").checked,
+            operator_note: document.getElementById("rmaNote").value.trim(),
+            canary_context: activeRmaScenarioObj ? activeRmaScenarioObj.canary_context : undefined
+          };
+          const out = await apiPost("/api/copilot/rma", payload);
+          renderRmaOutput(out);
+          hint.textContent = "Completed in " + out.bedrock_latency_ms + " ms";
+        } catch (err) {
+          hint.textContent = "Error: " + err.message;
+          document.getElementById("rmaBriefOutput").textContent = "API Error: " + err.message;
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // Boot sequence
+      parseHashState();
+      applyTheme(activeTheme);
+      window.switchTab(activeTab);
+      selectArchNode("edge-browser");
+      renderMeasuredKpisAndBenchmarks();
+
+      // Hydrate live tabs on load
+      (async function initLiveConsole() {
+        try {
+          const snap = await apiGet("/api/state");
+          applyStateSnapshot(snap);
+        } catch (_) {}
+        try {
+          await window.runSprtPreset("efa_crc_regression");
+        } catch (_) {}
+        try {
+          await window.runLiveScheduler();
+        } catch (_) {}
+        // Pre-populate Tab 4 banner cleanly before live button click
+        renderRmaOutput({
+          host_id: "usv-r02-h05",
+          location: "Aisle-A · Row 06 · U29",
+          matched_sop: {
+            sop_id: "SOP-HBM-ECC-01",
+            title: "Accelerator HBM Uncorrectable ECC Blade Replacement",
+            fru_part: "FRU-ACCEL-MOD-64G",
+            required_loto: "Verify host state == DC_RMA_DISPATCH, attach ESD wrist strap, open sled 48V hot-swap latch, wait 30s discharge LED off.",
+            burn_in_gate: "Run 4-pass HBM row/column pattern sweep + local 8-rank AllReduce loopback with 0 ECC events."
+          },
+          guardrails: {
+            authorized_for_action: true,
+            guardrail_verdict: "AUTHORIZED_DC_RMA_TOUCH",
+            host_drain_verified: true,
+            rack_capacity_floor_ok: true,
+            min_healthy_floor_n_minus_k: "7/8 (floor 6)",
+            loto_verified: true,
+            blocking_reasons: []
+          },
+          grounding_check: { grounded: true },
+          bedrock_model: "us.amazon.nova-lite-v1:0",
+          bedrock_latency_ms: 1193.4,
+          total_tokens: 644,
+          copilot_brief: "- Incident: Host usv-r02-h05 in rack-02 (Aisle-A, Row 06, U29) is in DC_RMA_DISPATCH with HBM_UNCORRECTABLE_ECC.\n- Guardrail Check: AUTHORIZED_DC_RMA_TOUCH confirmed (7/8 rack hosts healthy, above the 6/8 floor, LOTO verified).\n- Floor Procedure (SOP-HBM-ECC-01): Attach ESD strap, open the 48V sled latch, wait 30s for discharge LED off, and swap FRU-ACCEL-MOD-64G.\n- Post-Swap Qualification: Run 4-pass HBM memory sweep and 8-rank AllReduce loopback with 0 ECC errors before returning to HEALTHY."
+        });
+      })();
+    })();
+  </script>
+</body>
+</html>

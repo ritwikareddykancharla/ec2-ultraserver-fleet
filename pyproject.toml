@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nitro-ultraserver-fleet"
+version = "1.0.0"
+description = "NitroUltraFleet: Wald SPRT Firmware Canary Gate, Optimistic-Locked SQLite Host Repair Lifecycle, Collective Wait-For & Sub-Ring Gang Scheduler, and SOP-Grounded Bedrock RMA Copilot"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.34.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["nitro_fleet*"]

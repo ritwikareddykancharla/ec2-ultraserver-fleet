@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1220 740" role="img" aria-label="NitroUltraFleet System Architecture Diagram">
+  <defs>
+    <pattern id="archDotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#D4D4D8" />
+    </pattern>
+  </defs>
+
+  <rect x="0" y="0" width="1220" height="740" fill="#FFFFFF" />
+  <rect x="0" y="0" width="1220" height="740" fill="url(#archDotGrid)" opacity="0.7" />
+
+  <!-- PLANE 1: BROWSER & SERVERLESS AWS EDGE -->
+  <rect x="22" y="18" width="1176" height="146" fill="#F8FAFC" stroke="#334155" stroke-width="1.8" stroke-dasharray="8 6" />
+  <text x="38" y="42" font-family="monospace" font-size="13" font-weight="700" fill="#334155">PLANE 01 · OPERATOR CONSOLE &amp; SERVERLESS AWS EDGE (CLOUDFRONT + PRIVATE S3 OAC + PYTHON 3.12 LAMBDA)</text>
+
+  <rect x="40" y="56" width="210" height="86" fill="#DBEAFE" stroke="#18181B" stroke-width="2.2" />
+  <text x="145" y="83" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#18181B">Operator Browser</text>
+  <text x="145" y="104" text-anchor="middle" font-family="monospace" font-size="10" font-weight="600" fill="#1E3A8A">4 Live Control Tabs</text>
+  <text x="145" y="123" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#3F3F46">URL hash state · Dark mode</text>
+
+  <line x1="250" y1="99" x2="304" y2="99" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+  <polygon points="304,99 294,94 294,104" fill="#18181B" />
+
+  <rect x="306" y="56" width="250" height="86" fill="#E2E8F0" stroke="#18181B" stroke-width="2.2" />
+  <text x="431" y="83" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#18181B">Amazon CloudFront</text>
+  <text x="431" y="104" text-anchor="middle" font-family="monospace" font-size="10" font-weight="600" fill="#334155">Unified HTTPS Edge</text>
+  <text x="431" y="123" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#3F3F46">/* -&gt; S3 OAC · /api/* -&gt; Lambda</text>
+
+  <line x1="556" y1="76" x2="636" y2="66" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+  <line x1="556" y1="120" x2="636" y2="128" stroke="#18181B" stroke-width="2" stroke-dasharray="6 4" />
+
+  <rect x="638" y="42" width="272" height="50" fill="#DCFCE7" stroke="#18181B" stroke-width="2" />
+  <text x="774" y="64" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="800" fill="#18181B">Private S3 Web Bucket</text>
+  <text x="774" y="81" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#065F46">web/index.html · Public Block On</text>
+
+  <rect x="638" y="102" width="272" height="50" fill="#FEF3C7" stroke="#18181B" stroke-width="2" />
+  <text x="774" y="124" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="800" fill="#18181B">AWS Lambda API (Python 3.12)</text>
+  <text x="774" y="141" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#92400E">nitro_fleet/server.py · 512 MB</text>
+
+  <rect x="936" y="42" width="244" height="110" fill="#F1F5F9" stroke="#18181B" stroke-width="2" />
+  <text x="952" y="66" font-family="sans-serif" font-size="13.5" font-weight="800" fill="#334155">$0.00 Idle Serverless Stack</text>
+  <text x="952" y="88" font-family="monospace" font-size="9.5" fill="#18181B">• S3 + CloudFront + Lambda URL</text>
+  <text x="952" y="108" font-family="monospace" font-size="9.5" fill="#18181B">• SQLite WAL CAS in /tmp</text>
+  <text x="952" y="128" font-family="monospace" font-size="9.5" font-weight="700" fill="#059669">• 12 / 12 Unit Tests Passing</text>
+
+  <!-- PLANE 2: CANARY GATE & REPAIR STATE MACHINE -->
+  <rect x="22" y="192" width="1176" height="160" fill="#FFFBEB" stroke="#B45309" stroke-width="1.8" stroke-dasharray="8 6" />
+  <text x="38" y="216" font-family="monospace" font-size="13" font-weight="700" fill="#92400E">PLANE 02 · WALD SPRT CANARY GATE &amp; OPTIMISTIC-LOCKED SQLITE WAL HOST REPAIR LIFECYCLE</text>
+
+  <rect x="40" y="232" width="362" height="104" fill="#FEF3C7" stroke="#18181B" stroke-width="2.2" />
+  <text x="221" y="258" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#18181B">Wald SPRT Canary Engine</text>
+  <text x="221" y="280" text-anchor="middle" font-family="monospace" font-size="9.8" font-weight="700" fill="#92400E">nitro_fleet/sprt_canary.py</text>
+  <text x="221" y="300" text-anchor="middle" font-family="monospace" font-size="9.3" fill="#3F3F46">Canary_1Pct -&gt; 10Pct -&gt; 50Pct -&gt; 100Pct</text>
+  <text x="221" y="319" text-anchor="middle" font-family="monospace" font-size="9.3" font-weight="700" fill="#065F46">59.55% Fewer Checks to Halt Regressions</text>
+
+  <rect x="428" y="232" width="364" height="104" fill="#DBEAFE" stroke="#18181B" stroke-width="2.2" />
+  <text x="610" y="258" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#18181B">SQLite WAL CAS Repair Machine</text>
+  <text x="610" y="280" text-anchor="middle" font-family="monospace" font-size="9.8" font-weight="700" fill="#1E3A8A">nitro_fleet/repair_state_machine.py</text>
+  <text x="610" y="300" text-anchor="middle" font-family="monospace" font-size="9.3" fill="#3F3F46">20/20 CAS Races Clean · 0.219 ms p50</text>
+  <text x="610" y="319" text-anchor="middle" font-family="monospace" font-size="9.3" font-weight="700" fill="#1E3A8A">SHA-256 Chain Verified in 0.618 ms</text>
+
+  <rect x="818" y="232" width="362" height="104" fill="#FEE2E2" stroke="#18181B" stroke-width="2.2" />
+  <text x="999" y="258" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#991B1B">N-k Rack &amp; PDU Blast-Radius Guard</text>
+  <text x="999" y="280" text-anchor="middle" font-family="monospace" font-size="9.8" font-weight="700" fill="#18181B">Max k=2 Unavailable per 8-Host Rack</text>
+  <text x="999" y="300" text-anchor="middle" font-family="monospace" font-size="9.3" fill="#7F1D1D">Blocks Over-Cordon · Bad-Apple Escalation</text>
+  <text x="999" y="319" text-anchor="middle" font-family="monospace" font-size="9.3" font-weight="700" fill="#991B1B">8 / 8 Over-Budget Cordons Blocked (100%)</text>
+
+  <!-- PLANE 3: COLLECTIVE STRAGGLER DETECTOR & SUB-RING GANG SCHEDULER -->
+  <rect x="22" y="380" width="1176" height="156" fill="#F0FDF4" stroke="#065F46" stroke-width="1.8" stroke-dasharray="8 6" />
+  <text x="38" y="404" font-family="monospace" font-size="13" font-weight="700" fill="#065F46">PLANE 03 · COLLECTIVE WAIT-FOR STRAGGLER DETECTOR (CUSUM) &amp; BUDDY SUB-RING + EASY BACKFILL SCHEDULER</text>
+
+  <rect x="40" y="420" width="550" height="100" fill="#DCFCE7" stroke="#18181B" stroke-width="2.2" />
+  <text x="315" y="446" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#18181B">CUSUM + Wait-For Root-Blocker &amp; Cycle Detector</text>
+  <text x="315" y="468" text-anchor="middle" font-family="monospace" font-size="9.8" font-weight="700" fill="#065F46">Tabular CUSUM Drift + Tarjan SCC Deadlock Finder</text>
+  <text x="315" y="488" text-anchor="middle" font-family="monospace" font-size="9.4" fill="#3F3F46">100 / 100 Culprit Accuracy · 22.3 Lead Steps · 0.351 ms p50</text>
+  <text x="315" y="506" text-anchor="middle" font-family="monospace" font-size="9.4" font-weight="700" fill="#065F46">16:1 Alert Compression · 0 False Peer Blames</text>
+
+  <rect x="626" y="420" width="554" height="100" fill="#E0F2FE" stroke="#18181B" stroke-width="2.2" />
+  <text x="903" y="446" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#18181B">Contiguous Buddy Sub-Ring + EASY Backfill Scheduler</text>
+  <text x="903" y="468" text-anchor="middle" font-family="monospace" font-size="9.8" font-weight="700" fill="#0369A1">Power-of-Two Rack Rings Around Cordoned Nodes</text>
+  <text x="903" y="488" text-anchor="middle" font-family="monospace" font-size="9.4" fill="#3F3F46">0 Cross-Spine Fragmentations (vs. 292 Naive FIFO)</text>
+  <text x="903" y="506" text-anchor="middle" font-family="monospace" font-size="9.4" font-weight="700" fill="#0369A1">48.3% Lower Mean Queue Wait · 0.38 ms p50 Solve</text>
+
+  <!-- PLANE 4: BEDROCK RMA COPILOT & AISLE ROUTING -->
+  <rect x="40" y="564" width="550" height="148" fill="#F3E8FF" stroke="#18181B" stroke-width="2.2" />
+  <text x="315" y="594" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="800" fill="#5B21B6">PLANE 04 · SOP-Grounded Amazon Bedrock RMA Copilot</text>
+  <text x="315" y="618" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#18181B">us.amazon.nova-lite-v1:0 · Converse API · nitro_fleet/rma_copilot.py</text>
+  <text x="315" y="640" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#4C1D95">Enforces Host-Drain + Rack N-k Floor + LOTO Before Physical Touch</text>
+  <rect x="95" y="658" width="440" height="34" fill="#FFFFFF" stroke="#18181B" stroke-width="1.8" />
+  <text x="315" y="680" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#334155">8 / 8 Guardrail Cases Passed · 0 Hallucinations · 1,193.4 ms p50</text>
+
+  <rect x="626" y="564" width="554" height="148" fill="#F1F5F9" stroke="#18181B" stroke-width="2.2" />
+  <text x="903" y="594" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="800" fill="#334155">PLANE 04 · Serpentine Aisle Technician Router</text>
+  <text x="903" y="618" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#18181B">Data-Hall S-Shape Floor Path · Parts Cage Origin</text>
+  <text x="903" y="640" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#3F3F46">Orders DC_RMA_DISPATCH Stops by Aisle, Row &amp; Rack Elevation</text>
+  <rect x="683" y="658" width="440" height="34" fill="#DCFCE7" stroke="#18181B" stroke-width="1.8" />
+  <text x="903" y="680" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#065F46">52.41% Shorter Walk Path (90.81 m vs. 190.81 m FIFO)</text>
+</svg>
