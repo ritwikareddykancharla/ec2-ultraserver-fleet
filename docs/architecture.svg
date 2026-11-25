@@ -10,7 +10,7 @@
 
   <!-- PLANE 1: BROWSER & SERVERLESS AWS EDGE -->
   <rect x="22" y="18" width="1176" height="146" fill="#F8FAFC" stroke="#334155" stroke-width="1.8" stroke-dasharray="8 6" />
-  <text x="38" y="42" font-family="monospace" font-size="13" font-weight="700" fill="#334155">PLANE 01 · OPERATOR CONSOLE &amp; SERVERLESS AWS EDGE (CLOUDFRONT + PRIVATE S3 OAC + PYTHON 3.12 LAMBDA)</text>
+  <text x="38" y="42" font-family="monospace" font-size="13" font-weight="700" fill="#334155">PLANE 01 · OPERATOR CONSOLE &amp; SERVERLESS AWS EDGE (CLOUDFRONT + PRIVATE S3 OAC + AWS LAMBDA)</text>
 
   <rect x="40" y="56" width="210" height="86" fill="#DBEAFE" stroke="#18181B" stroke-width="2.2" />
   <text x="145" y="83" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="800" fill="#18181B">Operator Browser</text>
@@ -33,7 +33,7 @@
   <text x="774" y="81" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#065F46">web/index.html · Public Block On</text>
 
   <rect x="638" y="102" width="272" height="50" fill="#FEF3C7" stroke="#18181B" stroke-width="2" />
-  <text x="774" y="124" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="800" fill="#18181B">AWS Lambda API (Python 3.12)</text>
+  <text x="774" y="124" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="800" fill="#18181B">AWS Lambda API</text>
   <text x="774" y="141" text-anchor="middle" font-family="monospace" font-size="9.5" fill="#92400E">nitro_fleet/server.py · 512 MB</text>
 
   <rect x="936" y="42" width="244" height="110" fill="#F1F5F9" stroke="#18181B" stroke-width="2" />

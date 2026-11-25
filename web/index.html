@@ -1017,7 +1017,7 @@
           <span class="section-kicker">02 · Architecture</span>
           <h2 class="section-title">Architecture</h2>
           <p class="section-desc">
-            Amazon CloudFront serves the static web console from a private S3 bucket via Origin Access Control and routes <code>/api/*</code> calls to Python 3.12 on AWS Lambda. Click any component to inspect its module boundaries and measured performance.
+            Amazon CloudFront serves the static web console from a private S3 bucket via Origin Access Control and routes <code>/api/*</code> calls to AWS Lambda. Click any component to inspect its module boundaries and measured performance.
           </p>
         </div>
       </div>
@@ -1048,7 +1048,7 @@
 
           <!-- PLANE 1: SERVERLESS AWS EDGE -->
           <rect x="22" y="18" width="1176" height="146" fill="#F8FAFC" stroke="#475569" stroke-width="1.6" stroke-dasharray="8 6" />
-          <text x="36" y="41" class="svg-title" font-size="21" font-weight="700" fill="#334155">① Operator Browser &amp; Serverless AWS Edge (CloudFront + Private S3 OAC + Python 3.12 Lambda)</text>
+          <text x="36" y="41" class="svg-title" font-size="21" font-weight="700" fill="#334155">① Operator Browser &amp; Serverless AWS Edge (CloudFront + Private S3 OAC + AWS Lambda)</text>
 
           <g class="arch-node selected" data-arch-node="edge-browser" tabindex="0">
             <rect class="arch-stroke-main" x="38" y="55" width="202" height="86" fill="#DBEAFE" stroke="#18181B" stroke-width="2.1" />
@@ -1079,7 +1079,7 @@
 
           <g class="arch-node" data-arch-node="edge-lambda" tabindex="0">
             <rect class="arch-stroke-main" x="640" y="100" width="272" height="53" fill="#FEF3C7" stroke="#18181B" stroke-width="2" />
-            <text x="776" y="123" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">AWS Lambda API (Python 3.12)</text>
+            <text x="776" y="123" text-anchor="middle" class="svg-title" font-size="20" font-weight="700" fill="#18181B">AWS Lambda API</text>
             <text x="776" y="142" text-anchor="middle" class="svg-mono" font-size="9.2" fill="#92400E">nitro_fleet/server.py · 512 MB · 30s</text>
           </g>
 
@@ -1191,7 +1191,7 @@
           <span class="section-kicker">03 · Implementation</span>
           <h2 class="section-title">Implementation</h2>
           <p class="section-desc">
-            Five Python 3.12 modules in <code>nitro_fleet/</code> implement sequential probability rollout gates, optimistic-locked SQLite WAL repair transitions, collective graph fault isolation, contiguous sub-ring scheduling, and Bedrock Converse RMA synthesis.
+            Five backend modules in <code>nitro_fleet/</code> implement sequential probability rollout gates, optimistic-locked SQLite WAL repair transitions, collective graph fault isolation, contiguous sub-ring scheduling, and Bedrock Converse RMA synthesis.
           </p>
         </div>
         <span class="tag tag-pass">12 / 12 Unit Tests Passing</span>
@@ -1641,7 +1641,7 @@
         <div class="sim-header">
           <div>
             <h3 class="sim-title">4. SOP-Grounded DC Technician &amp; RMA Copilot</h3>
-            <p class="sim-desc">Invoke Amazon Bedrock (<code>us.amazon.nova-lite-v1:0</code>) to generate a technician repair order or canary halt rollback brief. Deterministic Python guardrails block physical hardware touch whenever drain, rack <code>N-k</code> floor, or LOTO requirements fail.</p>
+            <p class="sim-desc">Invoke Amazon Bedrock (<code>us.amazon.nova-lite-v1:0</code>) to generate a technician repair order or canary halt rollback brief. Deterministic guardrails block physical hardware touch whenever drain, rack <code>N-k</code> floor, or LOTO requirements fail.</p>
           </div>
           <span class="tag tag-accent">POST /api/copilot/rma · Bedrock Nova Lite</span>
         </div>
@@ -1985,7 +1985,7 @@
         },
         "edge-lambda": {
           plane: "Plane 01 · Serverless Compute",
-          title: "AWS Lambda Python 3.12 Control-Plane Origin",
+          title: "AWS Lambda Control-Plane Origin",
           module: "nitro_fleet/server.py :: lambda_handler",
           metric: "512 MB · 30s Timeout · $0 Idle",
           summary: "Routes /api/health, /api/canary/sprt, /api/repair/transition, /api/scheduler/allocate, /api/copilot/rma, /api/benchmarks, and /api/reset with zero always-on EC2 or database servers."

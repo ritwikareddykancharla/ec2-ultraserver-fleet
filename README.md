@@ -4,7 +4,7 @@
 - **Live `/api/health` Endpoint**: https://d11tzuh2v693p9.cloudfront.net/api/health
 - **GitHub Repository**: https://github.com/ritwikareddykancharla/ec2-ultraserver-fleet
 
-NitroUltraFleet is a Python 3.12 cluster control plane for staged firmware rollouts, optimistic-locked host repair workflows, collective straggler isolation, contiguous sub-ring gang scheduling, and SOP-grounded technician tickets, deployed serverlessly on **Amazon CloudFront + Private S3 (OAC) + AWS Lambda (`python3.12`) + SQLite WAL + Amazon Bedrock (`us.amazon.nova-lite-v1:0`)** at `$0.00` idle cost.
+NitroUltraFleet is a AWS Lambda cluster control plane for staged firmware rollouts, optimistic-locked host repair workflows, collective straggler isolation, contiguous sub-ring gang scheduling, and SOP-grounded technician tickets, deployed serverlessly on **Amazon CloudFront + Private S3 (OAC) + AWS Lambda (serverless) + SQLite WAL + Amazon Bedrock (`us.amazon.nova-lite-v1:0`)** at `$0.00` idle cost.
 
 ![NitroUltraFleet System Architecture](docs/architecture.svg)
 
@@ -54,6 +54,6 @@ AWS_PROFILE=portfolio AWS_DEFAULT_REGION=us-west-2 python3 benchmarks/run_benchm
 # 3. Start local server at http://localhost:3099
 python3 -m nitro_fleet.server
 
-# 4. Deploy to AWS CloudFront + Private S3 OAC + Python 3.12 Lambda
+# 4. Deploy to AWS CloudFront + Private S3 OAC + AWS Lambda
 bash infra/deploy_cloudfront.sh
 ```
