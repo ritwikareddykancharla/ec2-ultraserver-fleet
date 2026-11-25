@@ -1,6 +1,7 @@
 # NitroUltraFleet: Safe Firmware Rollouts, Host Repair, and Gang Scheduling for AI Clusters
 
-- **Live CloudFront Application**: *(deploying via `infra/deploy_cloudfront.sh`)*
+- **Live CloudFront Application**: https://d11tzuh2v693p9.cloudfront.net
+- **Live `/api/health` Endpoint**: https://d11tzuh2v693p9.cloudfront.net/api/health
 - **GitHub Repository**: https://github.com/ritwikareddykancharla/ec2-ultraserver-fleet
 
 NitroUltraFleet is a Python 3.12 cluster control plane for staged firmware rollouts, optimistic-locked host repair workflows, collective straggler isolation, contiguous sub-ring gang scheduling, and SOP-grounded technician tickets, deployed serverlessly on **Amazon CloudFront + Private S3 (OAC) + AWS Lambda (`python3.12`) + SQLite WAL + Amazon Bedrock (`us.amazon.nova-lite-v1:0`)** at `$0.00` idle cost.
